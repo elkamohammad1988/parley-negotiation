@@ -1,0 +1,5053 @@
+@import "tailwindcss";
+
+/* Parley — see lib/design.ts for what PAPER and ROOM mean and why there are
+   two registers.
+
+   This file owns three things:
+
+     1. The tokens, mirrored from lib/design.ts as CSS variables, for the cases
+        that have to live in a stylesheet — ::selection, scrollbars, and the
+        room's scoped overrides.
+     2. Base element styling.
+     3. The component layer (.pl-btn, .pl-card, .pl-input, .pl-badge and the
+        containers). These are real CSS classes rather than style objects
+        because :hover, :active, :disabled and :focus-visible cannot be
+        expressed in an inline style. A component whose hover state has to be
+        wired through React state gets written once and then never again, which
+        is how an interface ends up with nothing that responds to the cursor.
+
+   Anything defined here that also exists in lib/design.ts must agree with it. */
+
+/* ── Tokens ─────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Cream, and the same cream the landing page is built on — see the --lp-*
+     block in app/landing.css. The product and the page that sells it are
+     deliberately one palette. */
+  --pl-bg: #f7f2e7;
+  --pl-surface: #fffdf8;
+  --pl-surface-sunken: #ece4d4;
+  --pl-ink: #16181d;
+  --pl-ink-muted: rgba(22, 24, 29, 0.66);
+  /* The quietest tone that is still TEXT. It was 0.40, which composites to
+     #9d9b96 on the cream — 2.48:1, against a 4.5:1 requirement — and an axe
+     sweep found it setting words on 18 of 20 routes: the nav's quiet links, the
+     eyebrow headings above every section, the footer mark, "last updated" on
+     the legal pages, the helper lines under the sign-up form. Not an edge case;
+     the quietest tier of the type scale was simply not readable.
+
+     0.62 composites to 4.78:1 on --pl-bg and 4.85:1 on --pl-surface, which is
+     the same move --pl-warn-deep makes for warn-coloured words. It sits close
+     to --pl-ink-muted, and that is fine: the hierarchy between these tiers is
+     carried by size, weight, letter-spacing and case — 11px uppercase tracked
+     wide against 15px sentence case — not by a gap in alpha that only worked
+     because the lighter end was illegible.
+
+     --pl-ink-faint-line below keeps the old value for the three places it is
+     NOT text: a rule, a border, a decorative fill. */
+  --pl-ink-faint: rgba(22, 24, 29, 0.62);
+  --pl-ink-faint-line: rgba(22, 24, 29, 0.40);
+  --pl-line: rgba(22, 24, 29, 0.14);
+  --pl-line-strong: rgba(22, 24, 29, 0.26);
+
+  /* Clay is you, steel is them, citron is a thing you found out. Nothing else
+     in the product is allowed to carry meaning through colour.
+
+     Every -deep is the paired shadow tone for its own surface: a hard offset is
+     cast in the object's own colour family, never in black. */
+  --pl-clay: #f0522e;
+  --pl-clay-deep: #8c2a13;
+  --pl-clay-bright: #f0522e;
+  --pl-clay-soft: rgba(240, 82, 46, 0.12);
+  /* Text on a clay fill. White on clay is 3.5:1; ink on it is 5.0:1. Clay is
+     the same colour in both registers, so this is a literal rather than
+     --pl-ink, which flips to cream inside .pl-room. Mirrors SIGNAL.onClay. */
+  --pl-on-clay: #16181d;
+  --pl-steel: #2c4c66;
+  --pl-steel-deep: #0d222c;
+  --pl-steel-bright: #4e8cbc;
+  /* Steel set as small TEXT on a dark ground. `bright` is the fill and rule
+     grade: it clears 4.5:1 on the room's own ground, and falls to 3.8:1 on the
+     lighter tinted blocks a stamp actually sits in — the sealed block on the
+     landing's roomshot measured exactly that. Same fill/written split as
+     clay/clayDeep and warn/warnDeep, in the other direction because the ground
+     here is dark. 4.8:1 on the lightest room surface, 6.4:1 on the darkest. */
+  --pl-steel-on-dark: #70a8cf;
+  --pl-steel-soft: rgba(44, 76, 102, 0.10);
+  /* Citron is a FILL, never text on cream — it has nowhere near the contrast.
+     That constraint is what makes it read as a highlighter. */
+  --pl-citron: #dcf25c;
+  /* The written grade, for a citron stamp's label. It was #6e7c1f, which is
+     4.32:1 on the citron-soft ground it actually sits on — under AA at the
+     11px that stamp is set in. #667319 reads 5.0:1 there and is the same
+     olive. */
+  --pl-citron-deep: #667319;
+  --pl-citron-soft: rgba(220, 242, 92, 0.22);
+  --pl-gain: #2c6249;
+  --pl-gain-soft: rgba(44, 98, 73, 0.13);
+  --pl-warn: #a8730f;
+  --pl-warn-soft: rgba(168, 115, 15, 0.12);
+  /* Warn is a fill and a rule colour. As small TEXT on its own soft ground it
+     only reaches about 3.6:1, so anything that sets warn-coloured words uses
+     this darker grade instead.
+
+     It was #8a5f0c, which clears 4.5:1 on the cream but measured 4.43:1 on the
+     sunken surface the Configure marker sits on — so the one token whose stated
+     job is "passes AA" did not, on one of the two grounds it is used on.
+     #7a5309 reads 6.1:1 on --pl-bg and 5.4:1 on --pl-surface-sunken. */
+  --pl-warn-deep: #7a5309;
+
+  /* Mirrors TYPE in lib/design.ts. A closed set — a size that is not one of
+     these is a bug, not a judgement call. */
+  --pl-text-display: clamp(34px, 3.6vw + 16px, 60px);
+  --pl-text-h1: clamp(26px, 2.4vw + 14px, 40px);
+  --pl-text-h2: clamp(19px, 1.4vw + 12px, 28px);
+  --pl-text-h3: 17px;
+  --pl-text-lead: 18px;
+  /* Long-form reading surfaces only. Mirrors TYPE.prose — h3's 17px under a
+     name that says what it is for. See lib/design.ts. */
+  --pl-text-prose: 17px;
+  /* Moment type: a paragraph that has to carry a whole screen. Reserved for the
+     mandate at the instant it unseals. Mirrors TYPE.moment. Capped where four
+     sentences of it still fit above the fold on a laptop. */
+  --pl-text-moment: clamp(21px, 1.2vw + 12px, 30px);
+  --pl-text-body: 15px;
+  --pl-text-small: 13px;
+  --pl-text-caption: 12px;
+  /* The floor, and it is a floor. Every tracked-caps label in the product — a
+     speaker's name in a transcript, a file tab, a unit beside a figure — is set
+     from this one token. Ten of them were hardcoded at 10px while this token
+     sat here at 11px and unused, which meant the scale's smallest step
+     disagreed with the stylesheet that is supposed to mirror it, and the
+     labels naming who was speaking were the smallest text in the product. */
+  --pl-text-micro: 11px;
+
+  /* Mirrors SPACE in lib/design.ts. */
+  --pl-space-xs: 4px;
+  --pl-space-sm: 8px;
+  --pl-space-md: 12px;
+  --pl-space-lg: 16px;
+  --pl-space-xl: 24px;
+  --pl-space-xxl: 32px;
+  --pl-space-section: 48px;
+  --pl-space-section-lg: 72px;
+
+  /* Tight. Rounded-everything is the fastest way to look like every other
+     product; keeping these small lets the deliberately square edges read as a
+     decision. */
+  --pl-radius-sm: 2px;
+  --pl-radius-md: 4px;
+  --pl-radius-lg: 7px;
+
+  --pl-shadow-raised: 0 1px 2px rgba(22, 24, 29, 0.07), 0 4px 12px rgba(22, 24, 29, 0.06);
+  --pl-shadow-modal: 0 10px 44px rgba(22, 24, 29, 0.24);
+
+  /* The offset block shadow. No blur, solid ink — the edge a stamped or
+     pasted-on object throws. This is most of the product's physical
+     character, and it is why surfaces read as objects on a file rather than
+     as divs over a background. */
+  --pl-shadow-hard: 4px 4px 0 #16181d;
+  --pl-shadow-hard-sm: 2px 2px 0 #16181d;
+  --pl-shadow-hard-clay: 4px 4px 0 #8c2a13;
+  --pl-shadow-hard-steel: 4px 4px 0 #0d222c;
+  --pl-shadow-hard-citron: 4px 4px 0 #6e7c1f;
+
+  /* Mirrors CONTROL in lib/design.ts. */
+  --pl-control-h-sm: 30px;
+  --pl-control-h-md: 38px;
+  --pl-control-h-lg: 48px;
+  --pl-control-px-sm: 12px;
+  --pl-control-px-md: 18px;
+  --pl-control-px-lg: 26px;
+
+  /* Mirrors MOTION in lib/design.ts. */
+  --pl-instant: 80ms;
+  --pl-fast: 140ms;
+  --pl-base: 200ms;
+  --pl-slow: 320ms;
+  /* A scene change — the door into the room, the curtain off the reveal. Used
+     for those two crossings and nothing inside a screen. */
+  --pl-stage: 560ms;
+  --pl-ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --pl-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --pl-ease-entrance: cubic-bezier(0.34, 1.28, 0.64, 1);
+}
+
+/* The three font families are loaded and self-hosted by next/font in
+   app/layout.tsx, which defines --pl-font-sans / -serif / -mono on <html>.
+   They are deliberately not redeclared here: :root and the class next/font
+   puts on <html> have equal specificity, so a second definition would make the
+   winner depend on stylesheet order. */
+
+/* The live rehearsal is the only dark surface in the product. Scoped to
+   .pl-room rather than a media query or a theme toggle — it is a place you
+   enter, not a preference you set.
+
+   The tinted fills and shadows are re-stated rather than inherited: a 10%
+   wash that reads clearly on paper disappears on #111318, and a shadow built
+   from near-black does nothing on a near-black surface. */
+/* The room's ground, defined at the root rather than inside .pl-room because
+   <body> also has to be painted with it — it sits behind the room during
+   overscroll — and <body> is not inside .pl-room. One definition, referenced
+   from both places. RoomClient was hardcoding #12100e for the body, a warm
+   near-black left over from before the room moved onto steel, so rubber-banding
+   the room revealed a different colour behind it than the room itself. */
+:root { --pl-room-ground: #0d222c; }
+
+.pl-room {
+  /* Not "dark mode" — a lit table in an unlit room. The ground is the landing
+     page's deepest steel rather than a neutral black, so crossing into the room
+     reads as going further into the same world rather than flipping a theme. */
+  --pl-bg: var(--pl-room-ground);
+  --pl-surface: #123040;
+  --pl-surface-sunken: #17394b;
+  --pl-ink: #f7f2e7;
+  --pl-ink-muted: rgba(247, 242, 231, 0.66);
+  /* Same correction in the room's register, where 0.38 on the deep steel
+     ground reads 3.25:1. The binding ground is the LIGHTEST of the three the
+     room uses — --pl-surface-sunken as redefined just above, #17394b, which
+     lib/design.ts calls ROOM.surfaceRaised — where 0.58 reads 4.78:1 and 0.50
+     would read only 3.96:1. The room was not in the axe sweep, since it needs a
+     live rehearsal to render, so this is computed rather than measured, by
+     tests/contrast.test.ts, from the same colours the tokens above it declare. */
+  --pl-ink-faint: rgba(247, 242, 231, 0.58);
+  --pl-ink-faint-line: rgba(247, 242, 231, 0.38);
+  --pl-line: rgba(247, 242, 231, 0.13);
+  --pl-line-strong: rgba(247, 242, 231, 0.24);
+
+  --pl-clay-soft: rgba(240, 82, 46, 0.18);
+  --pl-steel-soft: rgba(78, 140, 188, 0.16);
+  --pl-citron-soft: rgba(220, 242, 92, 0.16);
+  --pl-gain-soft: rgba(44, 98, 73, 0.24);
+  --pl-warn-soft: rgba(168, 115, 15, 0.20);
+
+  /* On this ground an ink offset disappears, so the hard edge goes to the
+     deepest steel in the family. */
+  --pl-shadow-hard: 4px 4px 0 #061520;
+  --pl-shadow-hard-sm: 2px 2px 0 #061520;
+
+  --pl-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
+  --pl-shadow-modal: 0 8px 40px rgba(0, 0, 0, 0.55);
+}
+
+/* ── Base ───────────────────────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--pl-bg);
+  color: var(--pl-ink);
+  font-family: var(--pl-font-sans, system-ui, -apple-system, sans-serif);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--pl-clay-soft);
+}
+
+:focus-visible {
+  outline: 2px solid var(--pl-clay);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Available to assistive technology, invisible on screen. For text that has to
+   exist for a screen reader but is carried visually by something that is not
+   text — the redacted mandate on the landing page, for instance. */
+.pl-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Numerals in scores, timers and score deltas must not jitter as they tick. */
+.pl-num {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--pl-line);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--pl-ink-faint-line);
+  background-clip: content-box;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+
+/* Four widths, mirroring LAYOUT in lib/design.ts. `reading` is capped where it
+   is because briefs, debriefs and playbook entries are long-form prose, and a
+   1160px measure at body size is not readable.
+
+   ONE SPINE. The page frame is 1160 and it never changes — it is where the
+   wordmark, the nav links and every footer column start, so it is the line the
+   eye uses to decide whether a screen was composed or assembled.
+
+   The narrower widths used to be narrower BOXES, each re-centred in the
+   viewport. That is the thing that made the product read as generated: on
+   /library the wordmark began at 164 and the page title at 244, on the debrief
+   at 286, and the footer headings back at 164 — four left edges on one screen,
+   none of them wrong on its own and no two of them agreeing. Nothing on the
+   page lined up with the chrome around it.
+
+   So a narrow container is no longer a narrow box. It keeps the page frame and
+   takes its width off the RIGHT, hanging from the same left edge as everything
+   else. The content measure is unchanged at desktop — 1160 − 24 − 184 is the
+   952 it always was — and the difference is entirely where that 952 sits. The
+   right-hand air is the composition: content hangs on the spine and the page
+   breathes outward, instead of floating in the middle of its own chrome.
+
+   The clamp is the ramp back to a symmetric gutter. At 1160 of viewport the
+   right padding is the full 184; by 1000 it is the ordinary 24 and the
+   container behaves exactly as it did, which is what keeps every layout below
+   the desktop breakpoint untouched. */
+.pl-container {
+  width: 100%;
+  max-width: 1160px;
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+.pl-container--narrow { padding-right: clamp(24px, calc(100% - 976px), 184px); }
+.pl-container--reading { padding-right: clamp(24px, calc(100% - 656px), 504px); }
+
+/* The one deliberate exception. A sign-up or reset page is a single form on an
+   otherwise empty screen: there is no page content for it to line up with, so
+   centring it IS the composition rather than a failure to choose one. */
+.pl-container--form { max-width: 420px; }
+
+.pl-section { padding-block: 48px; }
+.pl-section--lg { padding-block: 72px; }
+.pl-section--tight { padding-block: 32px; }
+
+/* Rules between sections carry the page's rhythm; they are the line colour and
+   nothing else, so a stack of them never competes with the content. */
+.pl-rule {
+  border: 0;
+  border-top: 1px solid var(--pl-line);
+  margin: 0;
+}
+
+/* ── Motion ─────────────────────────────────────────────────────────────── */
+
+/* The counterpart's reply streams in a token at a time; this is the caret
+   that trails it so the room reads as live rather than as a page that
+   already finished loading. */
+@keyframes pl-caret {
+  0%, 45% { opacity: 1; }
+  55%, 100% { opacity: 0; }
+}
+.pl-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: currentColor;
+  vertical-align: text-bottom;
+  animation: pl-caret 1s step-end infinite;
+}
+
+@keyframes pl-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.pl-rise {
+  animation: pl-rise 0.22s ease-out;
+}
+
+/* Marks the running clock during a live rehearsal. Slow and low-contrast on
+   purpose — a rehearsal is under time pressure, but a throbbing red dot in
+   peripheral vision changes how people negotiate, which would corrupt the
+   very thing being measured. */
+@keyframes pl-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.pl-live-dot {
+  animation: pl-live 2.4s ease-in-out infinite;
+}
+
+/* ── Links ──────────────────────────────────────────────────────────────── */
+
+/* An underline that grows from the left rather than appearing all at once.
+   Uses background-size rather than a pseudo-element so it survives wrapping
+   across two lines. */
+/* The rule rested at 0% width, which meant a link inside a sentence was drawn
+   exactly like the sentence around it and the only way to discover it was to
+   happen to point at it. Colour alone could not fix that either: clay against
+   muted ink is about 1.2:1, nowhere near the 3:1 that would let colour carry
+   the distinction on its own.
+   So the rule is always there, faint, and hover firms it up to full strength
+   rather than drawing it from nothing. The movement is smaller than it was and
+   it is now decoration on top of something readable, instead of the only thing
+   telling you the link exists. */
+.pl-link {
+  --pl-link-rule: var(--pl-line-strong);
+  color: inherit;
+  text-decoration: none;
+  background-image: linear-gradient(var(--pl-link-rule), var(--pl-link-rule));
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% 1px;
+  transition: background-size var(--pl-base) var(--pl-ease-out),
+              color var(--pl-fast) var(--pl-ease-out);
+  padding-bottom: 1px;
+}
+.pl-link:hover,
+.pl-link:focus-visible {
+  --pl-link-rule: currentColor;
+  background-size: 100% 2px;
+}
+
+/* A link that is not inside a sentence.
+   The grow-from-the-left underline above is right for prose, where the
+   surrounding text already says "this is a link" and the rule arriving on
+   hover is a small pleasure. Standing on its own under a list it is the
+   opposite: a navigational link with no underline and no colour is
+   indistinguishable from a stray line of body copy, and the only way to find
+   out it is a link is to happen to point at it.
+   So this one rests underlined and carries the product's colour. */
+.pl-link--standalone {
+  --pl-link-rule: currentColor;
+  color: var(--pl-clay-deep);
+  font-weight: 500;
+}
+
+.pl-link--standalone:hover,
+.pl-link--standalone:focus-visible {
+  color: var(--pl-clay-deep);
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+
+/* One control, three weights of emphasis, three sizes. The sizes are far apart
+   on purpose: the previous code had four button paddings within two pixels of
+   each other, which the eye reads as inconsistency rather than as hierarchy.
+
+   Clay does double duty as both the primary and the destructive action. That
+   is deliberate — in this product clay means pressure, and confirming an
+   irreversible thing is the same register as committing to a rehearsal. */
+.pl-btn {
+  --pl-btn-h: var(--pl-control-h-md);
+  --pl-btn-px: var(--pl-control-px-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--pl-btn-h);
+  padding-inline: var(--pl-btn-px);
+  border: 1px solid transparent;
+  border-radius: var(--pl-radius-md);
+  background: none;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--pl-fast) var(--pl-ease-out),
+              border-color var(--pl-fast) var(--pl-ease-out),
+              color var(--pl-fast) var(--pl-ease-out),
+              transform var(--pl-instant) var(--pl-ease-out);
+}
+
+.pl-btn--sm {
+  --pl-btn-h: var(--pl-control-h-sm);
+  --pl-btn-px: var(--pl-control-px-sm);
+  font-size: 13px;
+}
+.pl-btn--lg {
+  --pl-btn-h: var(--pl-control-h-lg);
+  --pl-btn-px: var(--pl-control-px-lg);
+}
+.pl-btn--block {
+  display: flex;
+  width: 100%;
+}
+
+.pl-btn:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translateY(1px);
+}
+
+.pl-btn--primary {
+  background-color: var(--pl-clay);
+  /* Ink, not white. White on clay computes to 3.5:1; ink on the same clay is
+     5.0:1, and it is what the landing page's buttons already do. */
+  color: var(--pl-on-clay);
+}
+.pl-btn--primary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-color: var(--pl-clay-bright);
+}
+
+.pl-btn--secondary {
+  border-color: var(--pl-line-strong);
+  color: var(--pl-ink);
+}
+.pl-btn--secondary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-color: var(--pl-surface-sunken);
+  border-color: var(--pl-ink-faint);
+}
+
+.pl-btn--ghost {
+  color: var(--pl-ink-muted);
+}
+.pl-btn--ghost:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-color: var(--pl-surface-sunken);
+  color: var(--pl-ink);
+}
+
+/* Disabled is drawn, not dimmed. Fading clay to 40% opacity produces a muddy
+   pink that still looks like an available action; a flat sunken fill does not. */
+.pl-btn:disabled,
+.pl-btn[aria-disabled="true"] {
+  background-color: var(--pl-surface-sunken);
+  border-color: transparent;
+  color: var(--pl-ink-faint);
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Cards ──────────────────────────────────────────────────────────────── */
+
+.pl-card {
+  background: var(--pl-surface);
+  border: 1px solid var(--pl-line);
+  border-radius: var(--pl-radius-lg);
+  transition: border-color var(--pl-fast) var(--pl-ease-out),
+              box-shadow var(--pl-base) var(--pl-ease-out),
+              transform var(--pl-base) var(--pl-ease-out);
+}
+
+/* Only for cards that are actually a link or a button. A card that lifts under
+   the cursor and then does nothing when clicked is worse than one that sits
+   still. */
+.pl-card--interactive {
+  cursor: pointer;
+  text-decoration: none;
+  display: block;
+}
+.pl-card--interactive:hover {
+  border-color: var(--pl-line-strong);
+  box-shadow: var(--pl-shadow-raised);
+  transform: translateY(-1px);
+}
+.pl-card--interactive:active {
+  transform: translateY(0);
+}
+
+.pl-card--sunken {
+  background: var(--pl-surface-sunken);
+  border-color: transparent;
+}
+
+/* ── Fields ─────────────────────────────────────────────────────────────── */
+
+.pl-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin-bottom: 6px;
+}
+
+.pl-hint {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--pl-ink-faint);
+  margin: 0 0 8px;
+}
+
+.pl-input,
+.pl-textarea,
+.pl-select {
+  width: 100%;
+  min-height: var(--pl-control-h-md);
+  padding: 9px 14px;
+  background: var(--pl-surface);
+  color: var(--pl-ink);
+  border: 1px solid var(--pl-line-strong);
+  border-radius: var(--pl-radius-md);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.55;
+  transition: border-color var(--pl-fast) var(--pl-ease-out),
+              box-shadow var(--pl-fast) var(--pl-ease-out);
+}
+
+.pl-textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.pl-input::placeholder,
+.pl-textarea::placeholder {
+  color: var(--pl-ink-faint);
+}
+
+.pl-input:hover:not(:disabled),
+.pl-textarea:hover:not(:disabled),
+.pl-select:hover:not(:disabled) {
+  border-color: var(--pl-ink-faint);
+}
+
+/* The focus ring replaces the global outline rather than sitting outside it —
+   a 2px outline plus a 3px ring on a 5px radius reads as a rendering bug. */
+.pl-input:focus-visible,
+.pl-textarea:focus-visible,
+.pl-select:focus-visible {
+  outline: none;
+  border-color: var(--pl-clay);
+  box-shadow: 0 0 0 3px var(--pl-clay-soft);
+}
+
+.pl-input:disabled,
+.pl-textarea:disabled,
+.pl-select:disabled {
+  background: var(--pl-surface-sunken);
+  color: var(--pl-ink-faint);
+  cursor: not-allowed;
+}
+
+.pl-field-error {
+  font-size: 13px;
+  color: var(--pl-clay-deep);
+  margin: 6px 0 0;
+}
+
+.pl-input[aria-invalid="true"],
+.pl-textarea[aria-invalid="true"] {
+  border-color: var(--pl-clay);
+}
+
+/* ── Badges ─────────────────────────────────────────────────────────────── */
+
+.pl-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--pl-radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pl-badge--neutral {
+  background: var(--pl-surface-sunken);
+  color: var(--pl-ink-muted);
+}
+/* Clay is the user's colour and steel is the counterpart's, everywhere in the
+   product. Do not reach for clay to mark something the counterpart does. */
+.pl-badge--clay {
+  background: var(--pl-clay-soft);
+  color: var(--pl-clay);
+}
+.pl-badge--steel {
+  background: var(--pl-steel-soft);
+  color: var(--pl-steel);
+}
+.pl-badge--gain {
+  background: var(--pl-gain-soft);
+  color: var(--pl-gain);
+}
+.pl-badge--warn {
+  background: var(--pl-warn-soft);
+  color: var(--pl-warn);
+}
+
+/* Steel at #2c4c66 does not carry on a #181b21 surface. */
+.pl-room .pl-badge--steel { color: var(--pl-steel-bright); }
+.pl-room .pl-badge--clay { color: var(--pl-clay-bright); }
+
+/* ── The redaction ──────────────────────────────────────────────────────── */
+
+/* The product's central image, and the one visual idea everything else is
+   built around: the other side is working from a document you are not allowed
+   to read.
+
+   IMPORTANT — a redacted block contains NO TEXT. It is drawn from nothing:
+   a stack of bars at plausible line lengths. Covering real text with a black
+   background would leave it selectable, searchable, and readable in the DOM,
+   which for the counterpart's mandate would defeat the entire product. The
+   bars are decorative and the meaning is carried by an accessible label. */
+
+.pl-redact {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 2px 0;
+}
+
+.pl-redact__bar {
+  height: 13px;
+  background: var(--pl-ink);
+  border-radius: 1px;
+  /* Not a flat fill. A redaction made with a marker is never quite even, and
+     the slight banding is what stops this reading as a loading skeleton. */
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0 2px,
+    transparent 2px 7px
+  );
+}
+
+.pl-room .pl-redact__bar { background-color: #0b0a09; }
+
+/* Widths are staggered so the block has the ragged right edge of real prose. */
+.pl-redact__bar:nth-child(4n + 1) { width: 96%; }
+.pl-redact__bar:nth-child(4n + 2) { width: 100%; }
+.pl-redact__bar:nth-child(4n + 3) { width: 88%; }
+.pl-redact__bar:nth-child(4n + 4) { width: 71%; }
+
+/* A single inline strike, for a word or figure withheld mid-sentence. */
+.pl-redact-inline {
+  display: inline-block;
+  vertical-align: baseline;
+  height: 0.85em;
+  width: var(--w, 4.5em);
+  translate: 0 0.08em;
+  background: var(--pl-ink);
+  border-radius: 1px;
+}
+
+/* The reveal. The bar does not fade — it slides off the text, which is the
+   physical gesture the whole idea is named after. The text underneath is only
+   mounted at the moment it becomes legal to show it, so there is nothing to
+   uncover early. */
+@keyframes pl-unredact {
+  0%   { transform: scaleX(1); }
+  100% { transform: scaleX(0); }
+}
+
+.pl-reveal {
+  position: relative;
+  display: block;
+}
+
+.pl-reveal::after {
+  content: "";
+  position: absolute;
+  inset: -2px -4px;
+  background: var(--pl-ink);
+  transform-origin: right center;
+  animation: pl-unredact 620ms var(--pl-ease-in-out) forwards;
+  animation-delay: var(--d, 0ms);
+  pointer-events: none;
+}
+
+/* ── Dossier typography ─────────────────────────────────────────────────── */
+
+/* Uppercase, tracked, monospace. The label on a file tab. Used for section
+   headings inside working surfaces — never for prose, and never large. */
+.pl-stamp {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--pl-ink-faint);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+/* The rule that runs out from a stamp to the edge of its container. This is
+   what makes a heading look filed rather than centred. */
+.pl-stamp::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--pl-line);
+}
+
+/* Clay as WORDS on paper computes to 3.2:1, so like warn it uses its deep
+   tone for text (7.7:1 on cream) and keeps the hot one for fills and rules.
+   In the room the ground is dark and clay itself clears 4.6:1, so it stays. */
+.pl-stamp--clay { color: var(--pl-clay-deep); }
+.pl-room .pl-stamp--clay { color: var(--pl-clay-bright); }
+.pl-stamp--steel { color: var(--pl-steel); }
+.pl-room .pl-stamp--steel { color: var(--pl-steel-on-dark); }
+/* Citron cannot be text on cream — #dcf25c on #f7f2e7 is nowhere near
+   readable. A "found out" stamp takes the deep tone for its letters and the
+   bright one only for the rule beside them. On the room's dark ground the
+   bright tone is the readable one, so the pair swaps. */
+.pl-stamp--citron { color: var(--pl-citron-deep); }
+.pl-room .pl-stamp--citron { color: var(--pl-citron); }
+
+.pl-stamp--clay::after { background: color-mix(in srgb, var(--pl-clay) 30%, transparent); }
+.pl-stamp--citron::after { background: var(--pl-citron); }
+
+/* A marginal index number. Sits in the gutter beside a block and numbers it,
+   the way a clause is numbered in a real document. */
+.pl-index {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  font-variant-numeric: tabular-nums;
+  color: var(--pl-ink-faint);
+  letter-spacing: 0.06em;
+}
+
+/* ── Hard-edged surfaces ────────────────────────────────────────────────── */
+
+/* A slab is a card that behaves like an object: square-ish, bordered in ink,
+   and throwing a solid offset edge. It presses INTO the page under the cursor
+   rather than lifting off it — the shadow shortens and the surface moves to
+   meet it, which reads as something you pushed rather than something that
+   floated. */
+.pl-slab {
+  position: relative;
+  background: var(--pl-surface);
+  border: 1.5px solid var(--pl-ink);
+  border-radius: var(--pl-radius-md);
+  box-shadow: var(--pl-shadow-hard);
+  transition:
+    box-shadow var(--pl-fast) var(--pl-ease-out),
+    transform var(--pl-fast) var(--pl-ease-out);
+}
+
+a.pl-slab,
+button.pl-slab { display: block; text-align: inherit; color: inherit; text-decoration: none; cursor: pointer; }
+
+a.pl-slab:hover,
+button.pl-slab:hover {
+  transform: translate(2px, 2px);
+  box-shadow: var(--pl-shadow-hard-sm);
+}
+
+a.pl-slab:active,
+button.pl-slab:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+}
+
+.pl-slab--clay { border-color: var(--pl-clay); box-shadow: var(--pl-shadow-hard-clay); }
+.pl-slab--steel { border-color: var(--pl-steel); box-shadow: var(--pl-shadow-hard-steel); }
+.pl-slab--citron { border-color: var(--pl-citron-deep); box-shadow: var(--pl-shadow-hard-citron); }
+
+/* The tab on a file. A small squared flag that sits above and to the left of a
+   slab, overlapping its top edge. Composition, rather than another badge. */
+.pl-tab {
+  position: absolute;
+  top: -1px;
+  left: -1.5px;
+  transform: translateY(-100%);
+  background: var(--pl-ink);
+  color: var(--pl-bg);
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 10px 3px;
+  border-radius: var(--pl-radius-sm) var(--pl-radius-sm) 0 0;
+  white-space: nowrap;
+}
+
+.pl-tab--clay { background: var(--pl-clay); color: var(--pl-on-clay); }
+.pl-tab--steel { background: var(--pl-steel); color: #fff; }
+.pl-tab--citron { background: var(--pl-citron); color: var(--pl-ink); }
+
+/* ── Buttons, hardened ──────────────────────────────────────────────────── */
+
+/* The primary action gets the same physical treatment as a slab: it is an
+   object you press down, not a rectangle that lightens. The travel is small
+   enough to feel mechanical rather than bouncy. */
+.pl-btn--primary {
+  border: 1.5px solid var(--pl-clay-deep);
+  box-shadow: 2px 2px 0 var(--pl-clay-deep);
+  transition:
+    transform var(--pl-instant) var(--pl-ease-out),
+    box-shadow var(--pl-instant) var(--pl-ease-out),
+    background var(--pl-fast) var(--pl-ease-out);
+}
+
+.pl-btn--primary:hover:not(:disabled):not([aria-disabled="true"]) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--pl-clay-deep);
+}
+
+.pl-btn--primary:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+}
+
+.pl-btn--secondary {
+  border-width: 1.5px;
+  border-color: var(--pl-ink);
+}
+
+/* ── Numerals ───────────────────────────────────────────────────────────── */
+
+/* Scores and figures are the product's evidence, so they are set like evidence:
+   monospace, tabular, tight, and large enough to be the first thing read. */
+.pl-figure {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 0.9;
+}
+
+.pl-figure--xl { font-size: clamp(48px, 8vw, 76px); }
+.pl-figure--lg { font-size: 34px; }
+.pl-figure--md { font-size: 21px; }
+
+/* ── Entrance ───────────────────────────────────────────────────────────── */
+
+/* Blocks arrive by sliding up a few pixels and settling. Used for sequenced
+   reveals where the order carries meaning — a debrief being read out in the
+   order it happened, for instance. `--d` staggers it. */
+@keyframes pl-settle {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.pl-settle {
+  animation: pl-settle var(--pl-slow) var(--pl-ease-out) both;
+  animation-delay: var(--d, 0ms);
+}
+
+/* ── Elevation ──────────────────────────────────────────────────────────── */
+
+/* Four steps rather than the two this file started with. Depth is how a
+   surface says what it is: flush for something that is part of the page,
+   raised for something laid on top of it, lifted for the thing you are meant
+   to act on, overlay for something that has taken over the screen.
+
+   Each step pairs a tighter contact shadow with a wider ambient one. A single
+   large blur reads as fog; the contact shadow is what makes an edge look like
+   it is resting on the surface below rather than floating above it. */
+:root {
+  --pl-elev-flush: none;
+  --pl-elev-raised: 0 1px 2px rgba(21, 23, 28, 0.06), 0 4px 12px rgba(21, 23, 28, 0.05);
+  --pl-elev-lifted: 0 2px 4px rgba(21, 23, 28, 0.07), 0 12px 28px rgba(21, 23, 28, 0.09);
+  --pl-elev-overlay: 0 8px 40px rgba(21, 23, 28, 0.18);
+}
+
+.pl-room {
+  --pl-elev-raised: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
+  --pl-elev-lifted: 0 2px 6px rgba(0, 0, 0, 0.45), 0 14px 32px rgba(0, 0, 0, 0.4);
+  --pl-elev-overlay: 0 8px 40px rgba(0, 0, 0, 0.55);
+}
+
+/* ── Designed states ────────────────────────────────────────────────────── */
+
+/* Empty, loading and error are three of the most-seen screens in any product
+   and the three most often left as a bare string. They get a shape here: a
+   centred column, a rule above the heading to give it a horizon, and room to
+   breathe. The rule is clay on an error and line elsewhere, which is the only
+   thing that changes between them. */
+/* Empty, loading and error states sit on the PAGE'S OWN LEFT EDGE.
+   They used to be centred islands with `margin-inline: auto`, which gave every
+   sparse page three competing alignments at once: a left-aligned title and
+   lede at a reading measure, content at the container's full width, and this
+   floated into the middle underneath them. Nothing lined up with anything, so
+   the page read as stacked components rather than as a composition — which is
+   the most reliable way to look generated.
+
+   Aligning them to the same spine as the title costs nothing and is the single
+   largest composition fix available: /playbook, /progress, /counterparts,
+   /library and /dashboard all stop zigzagging. The measure is in ch rather
+   than px so it relates to the lede above it instead of to a round number.
+
+   Genuinely full-viewport states — the room opening, where there is no page
+   around it to align to — take --center. */
+.pl-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: var(--pl-space-md);
+  padding: clamp(36px, 7vw, 64px) 0;
+  max-width: 54ch;
+}
+
+.pl-state--center {
+  align-items: center;
+  text-align: center;
+  padding-inline: var(--pl-space-xl);
+  margin-inline: auto;
+}
+
+.pl-state__mark {
+  width: 34px;
+  height: 2px;
+  background: var(--pl-line-strong);
+  margin-bottom: var(--pl-space-xs);
+}
+
+.pl-state--error .pl-state__mark { background: var(--pl-clay); }
+.pl-state--busy .pl-state__mark { background: var(--pl-steel); }
+
+.pl-state__title {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: var(--pl-text-h2);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin: 0;
+  color: var(--pl-ink);
+}
+
+.pl-state__body {
+  font-size: var(--pl-text-body);
+  line-height: 1.65;
+  color: var(--pl-ink-muted);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.pl-state__actions {
+  display: flex;
+  gap: var(--pl-space-md);
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: var(--pl-space-sm);
+}
+
+/* The loading bar. A determinate-looking sweep rather than a spinner: a
+   rehearsal debrief takes a few seconds and a spinner says only "something is
+   happening", where this says "it is moving". */
+@keyframes pl-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+.pl-sweep {
+  position: relative;
+  width: 140px;
+  height: 2px;
+  background: var(--pl-line);
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+.pl-sweep::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  width: 25%;
+  background: var(--pl-steel);
+  animation: pl-sweep 1.4s var(--pl-ease-in-out) infinite;
+}
+
+/* ── The room ───────────────────────────────────────────────────────────── */
+
+/* The live rehearsal. Scoped under .pl-room, which also carries the dark
+   palette — see the token block at the top of this file.
+
+   The composition is two documents side by side: yours, legible, and theirs,
+   redacted. That asymmetry is the product, so the layout states it rather than
+   describing it. */
+
+.pl-room-shell {
+  /* The shell IS the viewport. With only a min-height the transcript column
+     grew to its content, the document scrolled instead of .pl-room-scroll,
+     and after four exchanges the composer sat below the fold — measured at
+     1332px on a 900px viewport. A fixed height bounds the flex chain so the
+     transcript scrolls inside its own column and the composer stays put. */
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--pl-bg);
+  color: var(--pl-ink);
+  /* A faint warm wash from the top left, as if one lamp is lit over the table.
+     Flat #12100e reads as a screen; this reads as a room. */
+  background-image: radial-gradient(
+    120% 80% at 12% 0%,
+    rgba(224, 103, 60, 0.07) 0%,
+    transparent 58%
+  );
+  background-attachment: fixed;
+}
+
+/* Ending. The dialog has closed and the end is being recorded; for a moment
+   nothing happens. The composer drops away, the transcript recedes, the live
+   mark stops — the room going still before the debrief opens on it. It is the
+   pause at the end of a real call, and it is what lets the reveal that follows
+   read as an event rather than as the next page. */
+/* The entrance animation below holds these at opacity 1 through its fill
+   mode, which would outrank this declaration in the cascade — so the
+   entrance is released here, and the recession can run. */
+.pl-room-shell[data-ending="true"] .pl-room-thread,
+.pl-room-shell[data-ending="true"] .pl-room-brief__inner {
+  animation: none;
+  opacity: 0.4;
+  transition: opacity var(--pl-stage) var(--pl-ease-in-out);
+}
+
+.pl-room-shell[data-ending="true"] .pl-room-composer {
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity var(--pl-slow) var(--pl-ease-in-out),
+    transform var(--pl-stage) var(--pl-ease-in-out);
+  pointer-events: none;
+}
+
+.pl-room-shell[data-ending="true"] .pl-room-head__live {
+  animation: none;
+  opacity: 0.3;
+}
+
+/* Arriving. The head settles first, then your brief, then the transcript and
+   the line you are about to speak — the room assembling around you rather
+   than appearing all at once. Runs on mount only: these elements mount when
+   the room goes live, and never remount inside it. */
+.pl-room-head__id,
+.pl-room-brief__inner,
+.pl-room-thread,
+.pl-room-composer__inner {
+  animation: pl-settle var(--pl-slow) var(--pl-ease-out) both;
+}
+
+.pl-room-brief__inner { animation-delay: 60ms; }
+.pl-room-thread { animation-delay: 120ms; }
+.pl-room-composer__inner { animation-delay: 200ms; }
+
+/* The bar was tinted rgba(27, 24, 21, 0.86) — a warm brown-black left from
+   before the room moved onto steel — so it sat visibly warmer than the room
+   underneath it. It is the room's own ground now, translucent. */
+.pl-room-head {
+  display: flex;
+  align-items: center;
+  gap: var(--pl-space-lg);
+  padding: 12px clamp(12px, 3vw, 22px);
+  border-bottom: 1px solid var(--pl-line);
+  background: rgba(13, 34, 44, 0.88);
+  backdrop-filter: blur(10px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+/* Marks that the room is live. Clay, because being in here is your state. */
+.pl-room-head__live {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pl-clay-bright);
+  flex-shrink: 0;
+}
+
+.pl-room-head__id { min-width: 0; flex: 1; }
+
+/* Who is across the table, and it leads.
+   The scenario title used to be the prominent line here and the person's name
+   sat under it in 12px faint — which had the room announcing the filing label
+   of the conversation over the human being conducting it. You already know
+   which deal you opened. What you need to hold on to for fourteen minutes is
+   that Marguerite Vale is on the other side of it, so she is the line that is
+   set in cream at reading weight and the scenario is the footnote.
+   The rule down the left is steel, because they are steel everywhere else. */
+.pl-room-head__who {
+  font-size: var(--pl-text-body);
+  font-weight: 550;
+  color: var(--pl-ink);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-left: 2px solid var(--pl-steel-bright);
+  padding-left: 10px;
+}
+
+.pl-room-head__role {
+  color: var(--pl-ink-faint);
+  font-weight: 400;
+}
+
+.pl-room-head__title {
+  font-size: var(--pl-text-caption);
+  color: var(--pl-ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 12px;
+  margin-top: 2px;
+}
+
+/* The clock. Tabular figures so it does not jitter, and an edge that turns
+   clay once the rehearsal is past its expected length. */
+/* It was drawn as a bordered, rounded box — which is the shape of a text
+   input, not of a clock. A box with a number in it asks to be edited. A
+   readout just reads.
+   So the border goes and the figure carries it instead: larger, tracked
+   tighter, tabular, in the room's brightest ink. It is the only running number
+   in the product and the one instrument the whole screen is timed against. */
+.pl-room-clock {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  color: var(--pl-ink);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color var(--pl-base) var(--pl-ease-out);
+}
+
+.pl-room-clock__now {
+  font-size: 21px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.pl-room-clock__of {
+  font-size: var(--pl-text-micro);
+  color: var(--pl-ink-faint);
+}
+
+.pl-room-clock[data-over="true"] {
+  border-color: var(--pl-clay);
+  color: var(--pl-clay-bright);
+}
+
+/* Phase. Three cells that fill as the conversation moves through its expected
+   length — the same thirds the counterpart's own pacing uses.
+
+   A clock reading, not a hint: it says how much of the meeting is gone, which
+   anyone in a real meeting can see by glancing at the wall. It deliberately
+   says nothing about how the user is doing. */
+.pl-room-phase {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.pl-room-phase__cells { display: flex; gap: 3px; }
+
+.pl-room-phase__cell {
+  width: 15px;
+  height: 4px;
+  background: var(--pl-line-strong);
+  transition: background var(--pl-slow) var(--pl-ease-out);
+}
+
+.pl-room-phase__cell[data-on="true"] { background: var(--pl-steel-bright); }
+.pl-room-phase[data-phase="late"] .pl-room-phase__cell[data-on="true"] { background: var(--pl-clay-bright); }
+
+.pl-room-phase__label {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pl-ink-faint);
+  white-space: nowrap;
+}
+
+.pl-room-body { display: flex; flex: 1; min-height: 0; }
+
+/* ── Your side ──────────────────────────────────────────────────────────── */
+
+.pl-room-brief {
+  width: 316px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--pl-line);
+  overflow: auto;
+  overscroll-behavior: contain;
+  /* A half-step deeper than the ground, in the ground's own family. It was a
+     warm brown-black left from before the room moved onto steel. */
+  background: rgba(6, 21, 32, 0.42);
+}
+
+.pl-room-brief__inner { padding: 22px 20px 32px; }
+
+/* The panel is a column on a desktop and a sheet on a phone, and each width
+   gets exactly one of the two triggers. Deciding this in CSS rather than from
+   a matchMedia read in JavaScript avoids a hydration mismatch. */
+.pl-room-brief__open,
+.pl-room-brief__close { display: none; }
+
+@media (min-width: 861px) {
+  .pl-room-brief[data-collapsed="true"] { display: none; }
+  .pl-sheet-backdrop { display: none; }
+}
+
+@media (max-width: 860px) {
+  .pl-room-brief {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: min(360px, 90vw);
+    z-index: 500;
+    background: var(--pl-surface);
+    border-right: 1.5px solid var(--pl-clay);
+    box-shadow: var(--pl-shadow-modal);
+    animation: pl-slide-in var(--pl-base) var(--pl-ease-out);
+    display: none;
+  }
+  .pl-room-brief[data-open="true"] { display: block; }
+
+  .pl-room-brief__toggle { display: none; }
+  .pl-room-brief__open { display: inline-flex; }
+  .pl-room-brief__close { display: inline-flex; margin-bottom: 18px; }
+
+  /* On a phone the head keeps the person and drops the filing label: the
+     name is the thing to hold on to, the scenario title is what you already
+     know. The role goes with the title — two words of it are worse than none. */
+  .pl-room-head__title,
+  .pl-room-head__role,
+  .pl-room-phase__label { display: none; }
+  .pl-room-head__who { padding-left: 9px; }
+  .pl-room-head { gap: 8px; }
+}
+
+.pl-room-brief .pl-stamp { margin-bottom: 10px; }
+.pl-room-brief .pl-stamp:not(:first-of-type) { margin-top: 26px; }
+
+/* The objective is the one line you must not lose track of, so it is the only
+   thing in the panel set in the reading face and marked in your own colour. */
+.pl-room-brief__objective {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: var(--pl-text-body);
+  line-height: 1.55;
+  color: var(--pl-ink);
+  margin: 0;
+  padding-left: 13px;
+  border-left: 2px solid var(--pl-clay);
+}
+
+.pl-room-brief__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.pl-room-brief__list li {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--pl-ink-muted);
+}
+
+.pl-room-brief__situation {
+  font-size: 13px;
+  line-height: 1.62;
+  color: var(--pl-ink-muted);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+/* ── Their side ─────────────────────────────────────────────────────────── */
+
+/* The sealed dossier. States the mechanic as an object: you can see that they
+   are holding something, how much of it there is, and that you cannot read it.
+   The bars contain no text at any point. */
+.pl-room-sealed {
+  position: relative;
+  margin-top: 40px;
+  padding: 16px 15px 15px;
+  border: 1px solid var(--pl-line-strong);
+  border-radius: var(--pl-radius-md);
+  background: var(--pl-steel-soft);
+}
+
+.pl-room-sealed__who {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--pl-ink);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.pl-room-sealed__role {
+  font-size: var(--pl-text-caption);
+  color: var(--pl-ink-faint);
+  margin: 2px 0 18px;
+}
+
+.pl-room-sealed .pl-stamp { margin-bottom: 10px; }
+
+.pl-room-sealed__note {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--pl-ink-faint);
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--pl-line);
+}
+
+/* ── Transcript ─────────────────────────────────────────────────────────── */
+
+.pl-room-main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+
+.pl-room-scroll {
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: clamp(18px, 3.5vw, 34px) clamp(16px, 4vw, 40px);
+  scroll-padding-bottom: 40px;
+}
+
+.pl-room-thread {
+  max-width: 720px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* Two voices on one page, not two columns of bubbles. Yours is flush and
+   ruled in clay, set in the sans at body size. Theirs is inset, ruled in
+   steel, and set in the serif a step larger — they are the voice you are
+   reading and answering, so they have the presence on the page, and the two
+   faces tell the sides apart in a thumbnail without a word being read. The
+   shape is readable from across the room. */
+.pl-say--them { padding-left: clamp(0px, 4vw, 42px); }
+
+.pl-say__who {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.pl-say--you .pl-say__who { color: var(--pl-clay-bright); }
+.pl-say--them .pl-say__who { color: var(--pl-steel-bright); }
+
+.pl-say__text {
+  font-size: var(--pl-text-body);
+  line-height: 1.64;
+  color: var(--pl-ink);
+  border-left: 2px solid;
+  padding-left: 16px;
+  white-space: pre-wrap;
+  text-wrap: pretty;
+}
+
+.pl-say--you .pl-say__text { border-color: var(--pl-clay); }
+.pl-say--them .pl-say__text {
+  border-color: var(--pl-steel-bright);
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: var(--pl-text-prose);
+  line-height: 1.6;
+}
+
+/* The counterpart present but not yet speaking. Their name is on the page and
+   a single steel rule breathes where their words will go — a person drawing
+   breath, not a machine working. It is the one loop in the room, and it exists
+   because a silent gap before a reply is indistinguishable from a broken
+   connection. When the first token lands the label stays put and the rule is
+   replaced by the sentence. */
+@keyframes pl-breathe {
+  0%, 100% { opacity: 0.28; transform: scaleX(0.72); }
+  50% { opacity: 0.9; transform: scaleX(1); }
+}
+
+.pl-say--pending .pl-say__text {
+  min-height: 1.6em;
+  display: flex;
+  align-items: center;
+}
+
+.pl-breath {
+  display: block;
+  width: 52px;
+  height: 2px;
+  background: var(--pl-steel-bright);
+  transform-origin: left center;
+  animation: pl-breathe 1.9s var(--pl-ease-in-out) infinite;
+}
+
+/* ── Composer ───────────────────────────────────────────────────────────── */
+
+/* Not a form. The composer is drawn as the transcript's next line — your
+   label in your colour, a rule down the left, the words after it — so what
+   you are typing looks like what you are about to have said. The field has no
+   box of its own: a box asks to be filled in, a ruled line asks to be spoken.
+   It grows with the sentence (see fitField in RoomClient) up to a share of
+   the viewport, and never shows a resize handle. */
+.pl-room-composer {
+  border-top: 1px solid var(--pl-line);
+  padding: 18px clamp(16px, 4vw, 40px) max(18px, env(safe-area-inset-bottom));
+  background: var(--pl-bg);
+}
+
+.pl-room-composer__inner { max-width: 720px; margin-inline: auto; }
+
+.pl-room-composer__who {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-weight: 500;
+  color: var(--pl-clay-bright);
+  margin-bottom: 8px;
+  transition: opacity var(--pl-fast) var(--pl-ease-out);
+}
+
+.pl-room-composer__field {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 2px 0 2px 16px;
+  min-height: 34px;
+  background: transparent;
+  color: var(--pl-ink);
+  border: none;
+  /* The rule is faint at rest and solid clay under focus, which is the state
+     you are in: speaking. Three pixels so the change is unmistakable, since it
+     is the focus indicator for the most important control in the product. */
+  border-left: 3px solid color-mix(in srgb, var(--pl-clay) 35%, transparent);
+  border-radius: 0;
+  font-family: inherit;
+  font-size: var(--pl-text-prose);
+  line-height: 1.6;
+  resize: none;
+  overflow-y: hidden;
+  transition: border-color var(--pl-fast) var(--pl-ease-out);
+}
+
+.pl-room-composer__field::placeholder { color: var(--pl-ink-faint); }
+
+.pl-room-composer__field:focus-visible {
+  outline: none;
+  border-left-color: var(--pl-clay);
+}
+
+.pl-room-composer__field:disabled {
+  color: var(--pl-ink-muted);
+  border-left-color: color-mix(in srgb, var(--pl-clay) 18%, transparent);
+  cursor: default;
+}
+
+.pl-room-composer__field:disabled ~ .pl-room-composer__foot { opacity: 0.8; }
+
+.pl-room-composer__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 12px;
+  padding-left: 19px;
+}
+
+.pl-room-composer__hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--pl-ink-faint);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+/* The two scrolling regions take focus so a keyboard can scroll them. They
+   fill their columns, so the ring is drawn inside the edge rather than
+   clipped by the overflow around it. */
+.pl-room-scroll:focus-visible,
+.pl-room-brief:focus-visible { outline-offset: -2px; }
+
+.pl-room-composer__keys { display: inline-flex; align-items: center; gap: 5px; }
+@media (hover: none) and (pointer: coarse) {
+  .pl-room-composer__keys { display: none; }
+}
+
+.pl-room-composer__right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.pl-room-composer__count { color: var(--pl-ink-faint); white-space: nowrap; }
+
+kbd.pl-kbd {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  padding: 3px 6px;
+  border: 1px solid var(--pl-line-strong);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  color: var(--pl-ink-muted);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+/* ── Notices ────────────────────────────────────────────────────────────── */
+
+.pl-room-notice {
+  border: 1px solid var(--pl-line-strong);
+  border-left-width: 3px;
+  border-radius: var(--pl-radius-md);
+  padding: 14px 16px;
+  font-size: var(--pl-text-small);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  background: var(--pl-surface);
+  color: var(--pl-ink);
+}
+
+.pl-room-notice--error,
+.pl-room-notice--refusal { border-left-color: var(--pl-clay); background: var(--pl-clay-soft); }
+.pl-room-notice--resources { border-left-color: var(--pl-steel-bright); background: var(--pl-steel-soft); }
+
+/* The same job on a PAPER surface. The room's version above carries refusal
+   and resource states and sits on the dark register; this is the quiet one for
+   everywhere else — a sent form, a failed action. */
+.pl-notice {
+  border: 1px solid var(--pl-line-strong);
+  border-radius: var(--pl-radius-md);
+  padding: 16px 18px;
+  font-size: var(--pl-text-body);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.pl-notice--good { background: var(--pl-gain-soft); border-color: var(--pl-gain); }
+.pl-notice--bad { background: var(--pl-clay-soft); border-color: var(--pl-clay); }
+
+/* ── Overlays ───────────────────────────────────────────────────────────── */
+
+.pl-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 400;
+  animation: pl-fade var(--pl-base) var(--pl-ease-out);
+}
+
+@keyframes pl-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pl-slide-in { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+
+.pl-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.66);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--pl-space-xl);
+  z-index: 600;
+  animation: pl-fade var(--pl-fast) var(--pl-ease-out);
+}
+
+.pl-modal {
+  background: var(--pl-surface);
+  border: 1.5px solid var(--pl-ink);
+  border-radius: var(--pl-radius-md);
+  box-shadow: var(--pl-shadow-hard);
+  padding: 26px 26px 22px;
+  max-width: 450px;
+  width: 100%;
+  animation: pl-settle var(--pl-base) var(--pl-ease-out) both;
+}
+
+.pl-room .pl-modal { border-color: var(--pl-line-strong); }
+
+.pl-modal__title {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 10px;
+  color: var(--pl-ink);
+}
+
+.pl-modal__body {
+  font-size: 14.5px;
+  line-height: 1.62;
+  color: var(--pl-ink-muted);
+  margin: 0 0 22px;
+  text-wrap: pretty;
+}
+
+.pl-modal__actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+@media (max-width: 520px) {
+  /* On a phone the name wins. The phase strip goes — the clock beside it
+     already says how far in you are — and the clock closes up, so the person
+     across the table is never cut to two letters. */
+  .pl-room-phase { display: none; }
+  .pl-room-clock { gap: 5px; }
+  .pl-room-clock__now { font-size: 19px; }
+  .pl-room-composer__foot { flex-direction: column; align-items: stretch; padding-left: 0; }
+  .pl-room-composer__hint { order: 2; justify-content: center; }
+  .pl-room-composer__right { justify-content: space-between; }
+  .pl-room-thread { gap: 22px; }
+  .pl-say--them { padding-left: 0; }
+  .pl-modal__actions .pl-btn { flex: 1; justify-content: center; }
+}
+
+/* ── The reveal, staged ─────────────────────────────────────────────────── */
+
+/* The product's signature moment. The debrief opens on the room's own dark
+   ground — you have just come from there — and the first thing that happens
+   is the one thing that could not happen inside it: the mandate unseals.
+
+   It is a plane over the viewport rather than a section of the page. While
+   the transcript is scored it holds the sealed block from the room; when the
+   debrief lands, each sentence mounts under its own bar and the bars slide
+   off top to bottom; the measure of what you surfaced settles in under them;
+   then the way out arrives. Continuing lifts the whole plane upward off the
+   page, and the paper debrief is what was underneath.
+
+   The power comes from timing, type and space. There is no glow, no flash,
+   nothing that moves without meaning a change of state. */
+.pl-act {
+  position: fixed;
+  inset: 0;
+  /* Above the page and its nav. The act owns the viewport: the cookie notice
+     and the support launcher are deferred until it lifts — see the
+     html[data-pl-act] rule below — the way they are inside the room. */
+  z-index: 800;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--pl-bg);
+  color: var(--pl-ink);
+  /* The same one lamp the room is lit by. */
+  background-image: radial-gradient(
+    120% 80% at 12% 0%,
+    rgba(224, 103, 60, 0.07) 0%,
+    transparent 58%
+  );
+  display: flex;
+  flex-direction: column;
+  padding: clamp(22px, 4vw, 40px) clamp(20px, 5vw, 48px) clamp(32px, 6vw, 64px);
+}
+
+/* While the act is up, DebriefClient stamps this on <html>. The floating
+   chrome is fixed-position and stacks above everything on an ordinary page,
+   which is right there and wrong over a reveal: it is not skipped, only
+   deferred until the plane lifts. */
+html[data-pl-act="true"] .ck-banner,
+html[data-pl-act="true"] .pl-support { display: none; }
+
+.pl-act__frame {
+  width: 100%;
+  max-width: 680px;
+  margin: auto;
+  outline: none;
+}
+
+/* Who, and which deal. The name leads, as it does in the room's head. */
+.pl-act__where {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 clamp(22px, 4vh, 40px);
+  font-size: var(--pl-text-small);
+  color: var(--pl-ink-faint);
+}
+
+.pl-act__who {
+  font-weight: 550;
+  color: var(--pl-ink);
+  border-left: 2px solid var(--pl-steel-bright);
+  padding-left: 10px;
+}
+
+.pl-act__stamp { margin-bottom: clamp(18px, 3vh, 26px); }
+
+/* Sealed. The block breathes very slightly while the transcript is scored —
+   the one thing on the screen that is still happening — and nothing else
+   moves. */
+@keyframes pl-sealed-breathe {
+  0%, 100% { opacity: 0.86; }
+  50% { opacity: 1; }
+}
+
+.pl-act__sealed {
+  max-width: 34rem;
+  animation: pl-sealed-breathe 2.6s var(--pl-ease-in-out) infinite;
+}
+
+.pl-act__sealed .pl-redact { gap: 11px; }
+.pl-act__sealed .pl-redact__bar { height: 18px; }
+
+.pl-act__status {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: clamp(24px, 4vh, 36px) 0 0;
+  font-size: var(--pl-text-small);
+  line-height: 1.6;
+  color: var(--pl-ink-muted);
+  max-width: 34rem;
+  text-wrap: pretty;
+}
+
+.pl-act__status .pl-sweep { flex-shrink: 0; width: 72px; }
+
+/* Open. The mandate is the protagonist: moment type in the serif, one
+   sentence to a line, and nothing beside it. On this ground the bar that
+   lifts is the redaction's own near-black, not the ink (which is cream here). */
+.pl-act__mandate {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  max-width: 40rem;
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: var(--pl-text-moment);
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.012em;
+  color: var(--pl-ink);
+}
+
+.pl-act__line {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.pl-act .pl-reveal::after { background: #0b0a09; }
+
+/* What you surfaced. Arrives after the last bar has lifted, so the screen
+   is read in the order it is meant to be understood: what they had, then how
+   much of it you got. Ruled off from the mandate rather than boxed. */
+.pl-act__surfaced {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 22px;
+  align-items: center;
+  max-width: 40rem;
+  margin-top: clamp(22px, 4vh, 36px);
+  padding-top: clamp(16px, 2.5vh, 22px);
+  border-top: 1px solid var(--pl-line-strong);
+}
+
+.pl-act__surfaced-n {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-right: 22px;
+  border-right: 1px solid var(--pl-line);
+}
+
+/* --pl-score on the DARK stage keeps the BRIGHT band tone: clayDeep on this
+   ground would be unreadable. Every paper consumer below reads --pl-score-ink
+   instead, which lib/design.ts's scoreBand() supplies as the AA-safe tone for
+   the same band. The two variables exist because a band is both drawn and
+   written, and the legible colour for each job is different. */
+.pl-act__surfaced-n .pl-figure { color: var(--pl-score, var(--pl-ink)); }
+
+.pl-act__unit {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pl-ink-faint);
+}
+
+.pl-act__surfaced .pl-stamp { margin-bottom: 7px; }
+
+.pl-act__surfaced-note {
+  font-size: var(--pl-text-body);
+  line-height: 1.6;
+  color: var(--pl-ink-muted);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+/* The way out of the act, pinned to the bottom of it.
+ *
+ * The mandate runs to five sentences in the longest scenarios, and with the
+ * score beneath it the act measured 906px against a 900px viewport: "See what
+ * it cost" — the only control on the plane, and the only way forward — sat
+ * below the fold at 1440x900, 1280x720 and 390x844 alike. The act scrolls, but
+ * it is a full-bleed dark plane with no chrome to suggest that it does, so the
+ * flow simply appeared to end.
+ *
+ * Sticky rather than shorter type or a capped, inner-scrolling mandate: the
+ * mandate is the protagonist of this screen and reducing it to fit would be
+ * solving the wrong problem. The sentences scroll; the way forward does not
+ * leave.
+ *
+ * The gradient is the plane's own ground, so a sentence passing under the
+ * control fades into the page instead of sliding behind a panel. */
+.pl-act__go {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: clamp(22px, 4vh, 36px);
+  padding-top: 18px;
+  padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to bottom, transparent 0%, var(--pl-bg) 26%);
+}
+
+.pl-act__go-note {
+  font-size: var(--pl-text-small);
+  color: var(--pl-ink-faint);
+  max-width: 24rem;
+  text-wrap: pretty;
+}
+
+/* Leaving. The plane lifts upward off the page — a clip rather than a fade,
+   so the debrief underneath is revealed by the dark going, not by the light
+   arriving. `forwards` holds the final frame until the act unmounts. */
+@keyframes pl-curtain {
+  from { clip-path: inset(0 0 0 0); }
+  to   { clip-path: inset(0 0 100% 0); }
+}
+
+.pl-act[data-state="leaving"] {
+  animation: pl-curtain var(--pl-stage) var(--pl-ease-in-out) forwards;
+  pointer-events: none;
+}
+
+/* The paper page settling in under the lifted plane. Only when the act just
+   played — a debrief opened from the dashboard arrives the ordinary way. */
+.pl-db[data-arrived="true"] .pl-db-head {
+  animation: pl-settle var(--pl-slow) var(--pl-ease-out) both;
+  animation-delay: 240ms;
+}
+
+@media (max-width: 560px) {
+  .pl-act__surfaced { grid-template-columns: 1fr; gap: 14px; }
+  .pl-act__surfaced-n {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 10px;
+    padding-right: 0;
+    border-right: none;
+  }
+  .pl-act__go .pl-btn { width: 100%; }
+}
+
+/* ── The debrief ────────────────────────────────────────────────────────── */
+
+/* The payoff. The page is read top to bottom in the order the rehearsal is
+   best understood, and the order is deliberately the opposite of a dashboard:
+   what they were holding comes FIRST, before any number. A 61 reads very
+   differently once you know they had nine per cent in their pocket the whole
+   time, and leading with the score turns the page into a grade. */
+
+/* On the page's spine, like every other route — see .pl-container--narrow.
+   This was a 900px box centred in the viewport, which put the debrief's title
+   106px to the right of the wordmark directly above it. The measure is the
+   same 852 it was; only its left edge moved, onto the line the nav and the
+   footer already sit on. */
+.pl-db {
+  --pl-db-gutter: clamp(16px, 4vw, 24px);
+  max-width: 1160px;
+  margin-inline: auto;
+  padding: 0 var(--pl-db-gutter) 80px;
+  padding-right: clamp(var(--pl-db-gutter), calc(100% - 876px), 284px);
+}
+
+.pl-db-head { padding: clamp(28px, 5vw, 48px) 0 clamp(24px, 4vw, 36px); }
+
+.pl-db-head__back { font-size: var(--pl-text-small); }
+
+/* Focus lands here after the reveal lifts. The ring the global rule draws is
+   right for a control and wrong for a title, so it is removed — the move of
+   focus is announced, not drawn. */
+.pl-db-head__title:focus { outline: none; }
+
+.pl-db-head__title {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: var(--pl-text-h1);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  margin: 14px 0 10px;
+  text-wrap: balance;
+}
+
+.pl-db-head__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13.5px;
+  color: var(--pl-ink-muted);
+}
+
+/* ── The reveal ─────────────────────────────────────────────────────────── */
+
+/* The single most important object in the product: the thing that was sealed
+   in the room, now open. It gets the amber — the colour reserved for
+   information the user earned — and it is the only place amber appears at
+   full strength. */
+.pl-db-reveal {
+  position: relative;
+  background: var(--pl-surface);
+  border: 1.5px solid var(--pl-ink);
+  border-radius: var(--pl-radius-md);
+  box-shadow: var(--pl-shadow-hard);
+  padding: clamp(22px, 4vw, 32px);
+  margin-bottom: clamp(28px, 5vw, 44px);
+}
+
+.pl-db-reveal__text {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: var(--pl-text-lead);
+  line-height: 1.6;
+  color: var(--pl-ink);
+  margin: 16px 0 0;
+  text-wrap: pretty;
+}
+
+/* At rest. When the act has just staged the unsealing, the paper copy of the
+   mandate is already known and must not lift a second time; the bar is not
+   drawn and the surfaced measure does not re-arrive. */
+.pl-db-reveal[data-still="true"] .pl-reveal::after { display: none; }
+.pl-db-reveal[data-still="true"] .pl-db-surfaced { animation: none; }
+.pl-db-reveal[data-still="true"] .pl-ledger { animation: none; }
+
+.pl-db-reveal__foot {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 20px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--pl-line);
+  font-size: 13px;
+  color: var(--pl-ink-faint);
+}
+
+/* The surfaced measure, attached to the reveal.
+
+   It arrives after the redaction has finished lifting, on a delay, so the two
+   read as one sentence delivered in order rather than as two panels that
+   appeared together: what they were holding, then how much of it you got. */
+.pl-db-surfaced {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 20px;
+  align-items: center;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--pl-line);
+  animation: pl-settle var(--pl-slow) var(--pl-ease-out) both;
+  animation-delay: var(--d, 0ms);
+}
+
+.pl-db-surfaced__n {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding-right: 20px;
+  border-right: 1px solid var(--pl-line);
+}
+
+.pl-db-surfaced__n .pl-figure { color: var(--pl-score-ink, var(--pl-score, var(--pl-ink))); }
+
+.pl-db-surfaced__unit {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pl-ink-faint);
+}
+
+.pl-db-surfaced .pl-stamp { margin-bottom: 7px; }
+
+.pl-db-surfaced__note {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--pl-ink-muted);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+@media (max-width: 560px) {
+  .pl-db-surfaced { grid-template-columns: 1fr; gap: 14px; }
+  .pl-db-surfaced__n {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 10px;
+    padding-right: 0;
+    border-right: none;
+  }
+}
+
+/* ── The ledger ─────────────────────────────────────────────────────────── */
+
+/* Every lever the counterpart was holding, found or missed.
+
+   A register, not a set of cards: one rule per row, a mark in the gutter and
+   the taxonomy set small and right. Five cards would give five items equal
+   weight and invite grazing; a ruled list has to be read top to bottom, which
+   is the point — the rows you missed are the ones that teach anything, and
+   they are interleaved with the ones you found rather than filed under a
+   second heading. Seeing your two among their five is the whole experience.
+
+   Attached to the reveal on the same delay the surfaced measure used, so the
+   screen still reads in one order: what they were holding, then how much of
+   it you got. */
+.pl-ledger {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--pl-line);
+  animation: pl-settle var(--pl-slow) var(--pl-ease-out) both;
+  animation-delay: var(--d, 0ms);
+}
+
+.pl-ledger__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pl-ledger__count {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+}
+
+.pl-ledger__count .pl-figure { color: var(--pl-score-ink, var(--pl-score, var(--pl-ink))); }
+
+.pl-ledger__of {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pl-ink-faint);
+}
+
+.pl-ledger__verdict {
+  margin: 10px 0 18px;
+  font-size: var(--pl-text-body);
+  line-height: 1.6;
+  color: var(--pl-ink-muted);
+  text-wrap: pretty;
+}
+
+.pl-ledger__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--pl-line);
+}
+
+.pl-ledger__row {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  gap: 0 14px;
+  align-items: start;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--pl-line);
+}
+
+/* The mark carries the verdict, and it is the only thing on the row that does.
+   Hollow is the default, because a lever you never found is not an event:
+   it is an absence, and it is drawn as one. */
+.pl-ledger__mark {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border: 1.5px solid var(--pl-ink-faint-line);
+  border-radius: var(--pl-radius-sm);
+  background: transparent;
+}
+
+/* Citron is the product's colour for a thing you found out, and this is the
+   one screen it is allowed on. */
+.pl-ledger__row[data-found="true"] .pl-ledger__mark {
+  background: var(--pl-citron);
+  border-color: var(--pl-citron-deep);
+}
+
+/* Missed, and it would have cost them nothing. Clay is cost, and this is the
+   most expensive row on the page: the thing they would have handed over for
+   the asking. It is the only row that also carries a rule, because it is the
+   one the user should leave with. */
+.pl-ledger__row[data-free="true"] .pl-ledger__mark {
+  background: var(--pl-clay);
+  border-color: var(--pl-clay-deep);
+}
+
+.pl-ledger__row[data-free="true"] {
+  margin-left: -14px;
+  padding-left: 12px;
+  border-left: 2px solid var(--pl-clay);
+}
+
+.pl-ledger__label {
+  margin: 0;
+  font-size: var(--pl-text-body);
+  line-height: 1.5;
+  color: var(--pl-ink-muted);
+  text-wrap: pretty;
+}
+
+.pl-ledger__row[data-found="true"] .pl-ledger__label {
+  color: var(--pl-ink);
+  font-weight: 500;
+}
+
+/* The question that would have opened it. This is the sentence the whole
+   feature exists to deliver, so it is set as the answer to a labelled
+   question rather than as a note. */
+.pl-ledger__miss {
+  margin: 6px 0 0;
+  font-size: var(--pl-text-small);
+  line-height: 1.55;
+  color: var(--pl-ink-faint);
+  text-wrap: pretty;
+}
+
+.pl-ledger__miss-k {
+  display: inline-block;
+  margin-right: 8px;
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pl-ink-faint);
+}
+
+.pl-ledger__row[data-free="true"] .pl-ledger__miss-k { color: var(--pl-clay-deep); }
+
+.pl-ledger__kind {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pl-ink-faint);
+  padding-top: 4px;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .pl-ledger__head { flex-direction: column; gap: 6px; }
+  /* The taxonomy drops under the label rather than squeezing the label into a
+     two-word column. */
+  .pl-ledger__row { grid-template-columns: 14px 1fr; }
+  .pl-ledger__kind { grid-column: 2; padding-top: 7px; }
+}
+
+/* ── Verdict ────────────────────────────────────────────────────────────── */
+
+/* Score and the one instruction, side by side. The number is set as evidence:
+   monospace, tabular, and large enough to be the first thing the eye lands on
+   after the reveal. */
+.pl-db-verdict {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 1fr;
+  gap: clamp(16px, 3vw, 28px);
+  margin-bottom: clamp(28px, 5vw, 44px);
+  align-items: stretch;
+}
+
+.pl-db-score {
+  border: 1.5px solid var(--pl-ink);
+  border-radius: var(--pl-radius-md);
+  background: var(--pl-surface);
+  padding: 22px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.pl-db-score__n { color: var(--pl-score-ink, var(--pl-score, var(--pl-ink))); }
+
+.pl-db-score__band {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pl-score-ink, var(--pl-score, var(--pl-ink)));
+  margin-top: 8px;
+}
+
+.pl-db-score__outcome {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--pl-line);
+  font-size: 13px;
+  color: var(--pl-ink-muted);
+  width: 100%;
+}
+
+/* The instruction. One change, in your colour, on a hard edge — it is the
+   thing the whole page exists to deliver. */
+.pl-db-one {
+  position: relative;
+  background: var(--pl-clay-soft);
+  border: 1.5px solid var(--pl-clay);
+  border-radius: var(--pl-radius-md);
+  box-shadow: var(--pl-shadow-hard-clay);
+  padding: clamp(20px, 3vw, 26px);
+  display: flex;
+  flex-direction: column;
+}
+
+.pl-db-one__text {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: clamp(17px, 1.3vw + 12px, 20px);
+  line-height: 1.5;
+  margin: 14px 0 18px;
+  color: var(--pl-ink);
+  text-wrap: pretty;
+  flex: 1;
+}
+
+/* ── Keep it ────────────────────────────────────────────────────────────── */
+
+/* Shown only when the browser holds no account. The record on this page then
+   lives under an id in localStorage and nowhere else, and this is the moment
+   the user has just received something worth keeping. Ruled and quiet, not
+   a third hard-edged object — the page already has its two. */
+.pl-db-keep {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 16px 0 18px;
+  margin-bottom: clamp(28px, 5vw, 44px);
+  border-top: 1px solid var(--pl-line-strong);
+  border-bottom: 1px solid var(--pl-line);
+}
+
+/* Two paragraphs, not one: the fact first, then the offer. They share the
+   column so the button stays on the right at desktop width and drops under
+   both of them on a phone. */
+.pl-db-keep__said {
+  flex: 1;
+  min-width: 240px;
+  max-width: 62ch;
+}
+
+.pl-db-keep__copy {
+  margin: 0;
+  font-size: var(--pl-text-body);
+  line-height: 1.6;
+  color: var(--pl-ink-muted);
+  text-wrap: pretty;
+}
+
+.pl-db-keep__copy + .pl-db-keep__copy { margin-top: 10px; }
+
+.pl-db-keep__copy strong { color: var(--pl-ink); font-weight: 600; }
+
+/* Does not shrink under the paragraphs beside it, and does not stretch to the
+   full width when it wraps below — it is one action, not a banner. */
+.pl-db-keep__cta { flex: 0 0 auto; }
+
+/* ── Dimensions ─────────────────────────────────────────────────────────── */
+
+/* A ledger. Five ruled rows on the paper rather than five cells in a box:
+   the index in the gutter, the dimension and the question it asks, the figure
+   set large with its band under it and a bar as the reading of it, and the
+   note that cites the transcript. The figure column is what you scan down;
+   the row is what you read across. Not a chart, and not a table pretending
+   not to be one. */
+.pl-db-dims {
+  border-top: 1.5px solid var(--pl-ink);
+  margin-bottom: clamp(28px, 5vw, 44px);
+}
+
+.pl-db-dim {
+  display: grid;
+  grid-template-columns: 28px minmax(150px, 190px) 92px 1fr;
+  gap: 20px;
+  align-items: start;
+  padding: 20px 0 22px;
+  border-bottom: 1px solid var(--pl-line);
+}
+
+.pl-db-dim__i { padding-top: 4px; }
+
+.pl-db-dim__label {
+  font-size: var(--pl-text-h3);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 4px;
+  line-height: 1.25;
+}
+
+.pl-db-dim__q {
+  font-size: var(--pl-text-caption);
+  color: var(--pl-ink-faint);
+  line-height: 1.45;
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.pl-db-dim__read {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.pl-db-dim__n { color: var(--pl-score-ink, var(--pl-score, var(--pl-ink))); }
+
+.pl-db-dim__band {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pl-score-ink, var(--pl-score, var(--pl-ink)));
+}
+
+/* The bar fills from zero on entry, so the row reads as a measurement being
+   taken rather than as a static graphic. */
+@keyframes pl-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.pl-db-dim__track {
+  height: 3px;
+  background: var(--pl-surface-sunken);
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.pl-db-dim__fill {
+  height: 100%;
+  background: var(--pl-score, var(--pl-ink));
+  transform-origin: left center;
+  animation: pl-fill 700ms var(--pl-ease-out) both;
+  animation-delay: var(--d, 0ms);
+}
+
+.pl-db-dim__note {
+  font-size: var(--pl-text-body);
+  line-height: 1.6;
+  color: var(--pl-ink-muted);
+  margin: 0;
+  padding-top: 3px;
+  text-wrap: pretty;
+}
+
+/* ── Moments ────────────────────────────────────────────────────────────── */
+
+.pl-db-moments { display: flex; flex-direction: column; gap: 14px; margin-bottom: clamp(28px, 5vw, 44px); }
+
+.pl-db-moment {
+  position: relative;
+  background: var(--pl-surface);
+  border: 1px solid var(--pl-line-strong);
+  border-left: 3px solid var(--pl-moment, var(--pl-ink));
+  border-radius: var(--pl-radius-md);
+  padding: 18px 20px;
+}
+
+.pl-db-moment__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+/* --pl-moment is DRAWN (the left rule above, the gutter square below);
+   --pl-moment-ink is the same distinction WRITTEN. They differ for cost, where
+   the bright clay is 3.13:1 on the cream and 3.47:1 on a surface — this label
+   is 11px, so it needs 4.5:1 and clay-deep gives 7.59 / 8.41. They are the same
+   value for gain, which already clears it at 6.31 / 7.00 and needs no deep
+   variant. Exactly the split scoreBand() makes in lib/design.ts, for the same
+   reason: a signal colour is both a fill and a word, and the legible value for
+   each job is different. */
+.pl-db-moment__kind {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--pl-moment-ink, var(--pl-moment, var(--pl-ink)));
+}
+
+/* A link drawn as a link, but it is a button: it scrolls rather than
+   navigates. Reset here rather than inline so it keeps .pl-link's rule. */
+.pl-db-moment__jump {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  padding-bottom: 1px;
+  font-family: inherit;
+  font-size: var(--pl-text-small);
+  cursor: pointer;
+}
+
+.pl-db-moment__label { font-size: var(--pl-text-body); line-height: 1.55; margin: 0 0 12px; text-wrap: pretty; }
+
+.pl-db-moment__quote {
+  margin: 0 0 14px;
+  padding: 10px 0 10px 14px;
+  border-left: 2px solid var(--pl-line-strong);
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--pl-ink-muted);
+}
+
+/* The better line. A concrete sentence they could have said, so it is set as
+   speech rather than as advice. */
+.pl-db-better {
+  background: var(--pl-surface-sunken);
+  border-radius: var(--pl-radius-sm);
+  padding: 14px 16px;
+}
+
+.pl-db-better__text {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: 15.5px;
+  line-height: 1.55;
+  margin: 8px 0 12px;
+  color: var(--pl-ink);
+}
+
+/* ── Again ──────────────────────────────────────────────────────────────── */
+
+/* Deliberately NOT a hard-edged object. The debrief already has two of those —
+   what they were holding, and the one thing to change — and a third competing
+   for the same weight turns a hierarchy into a row of equals. This is the exit,
+   so it is ruled and quiet, and the button inside it carries the emphasis. */
+.pl-db-again {
+  border: 1px solid var(--pl-line-strong);
+  border-top: 3px solid var(--pl-clay);
+  border-radius: var(--pl-radius-md);
+  background: var(--pl-surface);
+  padding: clamp(22px, 4vw, 28px);
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: clamp(28px, 5vw, 44px);
+}
+
+.pl-db-again__copy { flex: 1; min-width: 240px; }
+
+.pl-db-again__title {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: var(--pl-text-h2);
+  font-weight: 600;
+  margin: 10px 0 8px;
+  letter-spacing: -0.02em;
+}
+
+.pl-db-again__body {
+  font-size: var(--pl-text-body);
+  line-height: 1.6;
+  color: var(--pl-ink-muted);
+  margin: 0;
+  max-width: 58ch;
+  text-wrap: pretty;
+}
+
+/* ── Transcript ─────────────────────────────────────────────────────────── */
+
+/* The evidence, annotated. Lines the scorer named carry a mark in the gutter
+   and the note beside them; every other line is left alone, which is what
+   lets the marked ones read. On a wide page the note sits in the margin to
+   the right of the line; on a phone it follows the line. */
+.pl-db-script {
+  border: 1px solid var(--pl-line-strong);
+  border-radius: var(--pl-radius-md);
+  background: var(--pl-surface);
+  padding: clamp(20px, 3vw, 28px);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.pl-db-turn {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px 24px;
+  scroll-margin-top: 90px;
+  border-radius: var(--pl-radius-sm);
+  transition: background var(--pl-slow) var(--pl-ease-out);
+}
+
+.pl-db-turn[data-flash="true"] { background: var(--pl-citron-soft); }
+
+/* A marked line. The gutter mark is a small solid square in the moment's
+   colour, set just outside the line's own rule. */
+.pl-db-turn[data-mark]::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: 22px;
+  width: 6px;
+  height: 6px;
+  background: var(--pl-moment, var(--pl-ink));
+}
+
+/* Both halves, together — see .pl-db-moment__kind. The square in the gutter is
+   drawn in the bright tone; the label beside the note is written in the deep
+   one. */
+.pl-db-turn[data-mark="cost"] { --pl-moment: var(--pl-clay); --pl-moment-ink: var(--pl-clay-deep); }
+.pl-db-turn[data-mark="gain"] { --pl-moment: var(--pl-gain); --pl-moment-ink: var(--pl-gain); }
+
+.pl-db-turn__notes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pl-db-turn__note {
+  margin: 0;
+  padding-left: 14px;
+  border-left: 2px solid var(--pl-moment, var(--pl-ink));
+  font-size: var(--pl-text-small);
+  line-height: 1.5;
+  color: var(--pl-ink-muted);
+  text-wrap: pretty;
+}
+
+.pl-db-turn__note-kind {
+  display: block;
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--pl-moment-ink, var(--pl-moment, var(--pl-ink)));
+  margin-bottom: 3px;
+}
+
+@media (min-width: 761px) {
+  /* The note spans both rows. `auto 1fr` keeps the speaker label's row at
+     its own height and gives the note's extra height to the line's row —
+     without it the spanning note is split across both and the label floats
+     away from its line. */
+  .pl-db-turn[data-mark] {
+    grid-template-columns: minmax(0, 1fr) 200px;
+    grid-template-rows: auto 1fr;
+  }
+  .pl-db-turn[data-mark] .pl-db-turn__who { grid-column: 1; }
+  .pl-db-turn[data-mark] .pl-db-turn__text { grid-column: 1; }
+  .pl-db-turn[data-mark] .pl-db-turn__notes {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: start;
+    margin-top: 20px;
+  }
+}
+
+.pl-db-turn__who {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 6px;
+}
+
+.pl-db-turn--you .pl-db-turn__who { color: var(--pl-clay-deep); }
+.pl-db-turn--them .pl-db-turn__who { color: var(--pl-steel); }
+
+.pl-db-turn__text {
+  font-size: 15px;
+  line-height: 1.62;
+  border-left: 2px solid;
+  padding-left: 14px;
+  white-space: pre-wrap;
+  text-wrap: pretty;
+}
+
+.pl-db-turn--you .pl-db-turn__text { border-color: var(--pl-clay); }
+.pl-db-turn--them .pl-db-turn__text {
+  border-color: var(--pl-steel);
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: 16px;
+  color: var(--pl-ink-muted);
+}
+
+.pl-db-section { margin: 0 0 16px; }
+
+/* ── Reporting a counterpart ────────────────────────────────────────────── */
+
+/* The quietest thing on the page, on purpose. It is the last block on a long
+   debrief and it applies to the minority of rehearsals that went wrong, so it
+   is a line of text until someone opens it — no card, no border, no fill. The
+   only reason it is visible at all is that a fault the user cannot report is a
+   fault we never hear about. */
+.pl-db-report {
+  margin-top: clamp(28px, 5vw, 44px);
+  padding-top: 20px;
+  border-top: 1px solid var(--pl-line);
+}
+
+.pl-db-report__summary {
+  font-size: var(--pl-text-small);
+  color: var(--pl-ink-muted);
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+.pl-db-report__summary::-webkit-details-marker { display: none; }
+
+/* A caret drawn rather than typed, so it rotates with the disclosure and does
+   not depend on a font carrying the glyph. */
+.pl-db-report__summary::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 4px solid currentColor;
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  transition: transform var(--pl-fast) var(--pl-ease-out);
+}
+.pl-db-report__d[open] .pl-db-report__summary::before { transform: rotate(90deg); }
+.pl-db-report__summary:hover { color: var(--pl-ink); }
+
+.pl-db-report__body {
+  max-width: 62ch;
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pl-db-report__lede,
+.pl-db-report__done {
+  margin: 0;
+  font-size: var(--pl-text-small);
+  line-height: 1.6;
+  color: var(--pl-ink-muted);
+  max-width: 62ch;
+  text-wrap: pretty;
+}
+
+.pl-db-report__set {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Grid rather than flex so the label and its hint align to one another down the
+   column instead of to each radio's own height. */
+.pl-db-report__opt {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  cursor: pointer;
+}
+.pl-db-report__opt input { margin-top: 3px; accent-color: var(--pl-clay); }
+.pl-db-report__opt-label {
+  display: block;
+  font-size: var(--pl-text-small);
+  color: var(--pl-ink);
+}
+.pl-db-report__opt-hint {
+  display: block;
+  font-size: var(--pl-text-micro);
+  line-height: 1.5;
+  color: var(--pl-ink-muted);
+  margin-top: 2px;
+}
+
+.pl-db-report__detail-label {
+  font-size: var(--pl-text-small);
+  color: var(--pl-ink);
+  margin-bottom: -8px;
+}
+.pl-db-report__optional { color: var(--pl-ink-muted); }
+
+.pl-db-report__fine {
+  margin: 0;
+  font-size: var(--pl-text-micro);
+  line-height: 1.5;
+  color: var(--pl-ink-muted);
+}
+
+.pl-db-report__error {
+  margin: 0;
+  font-size: var(--pl-text-small);
+  line-height: 1.5;
+  /* clay-deep, because this is a sentence and not a rule. See scoreBand() in
+     lib/design.ts for the general case. */
+  color: var(--pl-clay-deep);
+}
+
+/* The button sits at its own width rather than filling the column — a
+   full-width primary here would outweigh "Back to dashboard" above it. */
+.pl-db-report__body .pl-btn { align-self: flex-start; }
+
+@media (max-width: 760px) {
+  .pl-db-verdict { grid-template-columns: 1fr; }
+  .pl-db-score { flex-direction: row; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .pl-db-score__outcome { margin-top: 0; padding-top: 0; border-top: none; width: auto; }
+  /* The ledger folds: index and label share the first row, the reading sits
+     under them, the note last. The bar keeps a fixed width so it stays a
+     reading rather than becoming a page-wide divider. */
+  .pl-db-dim { grid-template-columns: 28px 1fr; gap: 12px 14px; }
+  .pl-db-dim__read { grid-column: 2; flex-direction: row; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .pl-db-dim__track { width: 140px; margin-top: 0; align-self: center; }
+  .pl-db-dim__note { grid-column: 2; padding-top: 0; }
+  .pl-db-turn[data-mark]::before { left: -10px; }
+}
+
+/* ── Footer ─────────────────────────────────────────────────────────────── */
+
+/* Footer links were 13px text with an 8px margin and no padding, which made
+   them 20px tall — under the 24px minimum in WCAG 2.2 Target Size (2.5.8), and
+   genuinely fiddly to hit on a phone. The height comes from padding rather than
+   from a bigger font so the visual weight of the footer is unchanged.
+
+   The row is inline-flex rather than block so the hit area stops at the end of
+   the label instead of spanning the whole column, which is what made the
+   previous version report as a 272px-wide target. */
+.pl-footer__link {
+  /* flex, not inline-flex: these are stacked rows in a column, and inline-flex
+     made them flow into one another so the column read "PlaybookProgressPricing".
+     Width was never the problem — 2.5.8 is a MINIMUM, and a wide target is
+     fine. The 20px height was the failure, and padding fixes it without
+     changing the type size or the footer's visual weight. */
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 2px 0;
+  font-size: 13px;
+  text-decoration: none;
+  transition: color var(--pl-fast) var(--pl-ease-out);
+}
+
+.pl-footer__link:hover,
+.pl-footer__link:focus-visible { color: var(--pl-clay) !important; }
+
+/* ── Dashboard ──────────────────────────────────────────────────────────── */
+
+/* Two surfaces and a list. The dashboard's job is to make the next action
+   obvious, so the dated conversation is the only thing on the page with a hard
+   edge and the product's colour — everything else is quieter than it. */
+
+/* The left rule carries the score band — it is set inline from scoreBand() in
+   app/dashboard/page.tsx, so the colour of that edge IS the reading. The four
+   sides around it were not saying anything: the dashboard stacked this box and
+   the rehearsal list below it under the dated slab, so a page whose one real
+   object is the conversation had three rectangles of equal weight down it.
+
+   The rule stays because it is the reading. The box goes, and the section is
+   held by the mark above it and the air around it instead. */
+.pl-dash-leak {
+  border-left: 3px solid var(--pl-ink);
+  padding: 2px 0 2px 18px;
+  margin-bottom: clamp(28px, 5vw, 40px);
+}
+
+.pl-dash-leak .pl-stamp { margin-bottom: 12px; }
+
+/* The score, the dimension it belongs to and its movement share one baseline,
+   so the figure reads as a measurement of the label beside it rather than as a
+   number floating above a caption. */
+.pl-dash-leak__row {
+  display: flex;
+  gap: var(--pl-space-lg);
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.pl-dash-leak__dim {
+  font-size: var(--pl-text-lead);
+  font-weight: 600;
+}
+
+.pl-dash-leak__move { font-size: var(--pl-text-small); }
+
+/* The failure mode, in the dimension's own words from lib/negotiation. It is
+   the only sentence on the dashboard that says what to actually do
+   differently, so it is set as prose rather than as a caption. */
+/* Marks the fallback line as the general case rather than a finding about
+   this person. Shown only when there is no lever history to say better. */
+.pl-dash-leak__general {
+  display: inline-block;
+  margin-right: 8px;
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pl-ink-faint);
+}
+
+.pl-dash-leak__why {
+  font-size: var(--pl-text-body);
+  line-height: 1.6;
+  color: var(--pl-ink-muted);
+  margin: var(--pl-space-md) 0 0;
+  max-width: 62ch;
+  text-wrap: pretty;
+}
+
+/* An empty state that is a shape rather than a paragraph. The dashed edge says
+   "something belongs here" without pretending to be a card.
+
+   It used to carry a -45deg repeating gradient at 1.4% alpha underneath: a
+   hatch nobody can see, doing an impression of paper texture. A fake material
+   effect is a decoration that has to be looked for, which is the definition of
+   one that is not communicating anything. The dashed edge already says the
+   whole thing. */
+.pl-dash-empty {
+  border: 1.5px dashed var(--pl-line-strong);
+  border-radius: var(--pl-radius-md);
+  padding: clamp(26px, 5vw, 38px) clamp(22px, 4vw, 30px);
+  margin-bottom: 20px;
+}
+
+.pl-dash-empty__title {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: var(--pl-text-h2);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  margin: 0 0 12px;
+  line-height: 1.15;
+}
+
+.pl-dash-empty__body {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--pl-ink-muted);
+  max-width: 52ch;
+  margin: 0 0 22px;
+  text-wrap: pretty;
+}
+
+.pl-dash-empty__actions {
+  display: flex;
+  gap: var(--pl-space-md);
+  flex-wrap: wrap;
+}
+
+/* The dated conversation. It is the one object on the page drawn as a file —
+   slab edge, countdown on the tab — because it is the only thing here that is
+   actually happening to you on a date. Everything else is a record of what you
+   have already done, and is quieter than it.
+
+   It was previously a hand-rolled surface with its own border, radius and
+   padding, which meant the page's most important element was also the only one
+   not drawn in the product's vocabulary. */
+/* The top margin is clearance for the tab, which is drawn above the slab's top
+   edge and would otherwise be clipped by whatever sits above it. */
+.pl-dash-next {
+  padding: 26px 28px 22px;
+  margin-top: 22px;
+  margin-bottom: 26px;
+}
+
+/* The hero carries the page's h1, so it is set at the same size as any other
+   page title — the dashboard's headline is the conversation, and it should not
+   be typeset as a subheading.
+
+   That was the stated intent and it was not being met: --pl-text-h2 is the
+   same step .pl-sec-title uses, so "Snowflake renewal with Ardent" and
+   "Recent rehearsals" below it were typeset identically, and the page's most
+   important line had exactly the weight of a section label.
+
+   It is a step below .pl-head__title rather than equal to it, and that is the
+   one place in the product where a title may be: this one is set INSIDE a
+   framed object with a tab on it, and the frame is already doing part of the
+   announcing that an open page makes the type do alone. What matters is that
+   it now clears the section heading under it by a full step. */
+.pl-dash-next__title {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: clamp(27px, 2vw + 14px, 42px);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+  margin: 0 0 18px;
+  text-wrap: balance;
+}
+
+.pl-dash-next__actions {
+  display: flex;
+  gap: var(--pl-space-md);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.pl-dash-next__against {
+  font-size: var(--pl-text-small);
+  color: var(--pl-ink-faint);
+}
+
+/* Pushes the dismiss control to the far edge, away from the primary action —
+   "it happened, clear it" is destructive-adjacent and should not sit under the
+   thumb that is reaching for "rehearse it". */
+.pl-dash-next__clear { margin-left: auto; }
+
+/* The record. A ruled list rather than a stack of cards: eight rehearsals as
+   eight cards is eight borders, eight radii and eight shadows for what is
+   really one object with rows in it. */
+/* An archive read by date. Same reasoning as .pl-dash-leak and .pl-trend: the
+   rows are already separated by rules, so the border around them was a second
+   boundary drawn over a boundary that already worked. The top rule is what
+   says the list starts. */
+.pl-dash-list {
+  border-top: 1px solid var(--pl-line-strong);
+}
+
+/* A row is a record: the date in the gutter, the deal and who it was against,
+   the result, and the way to run it again. The title link is stretched over
+   the whole row with a pseudo-element, so the line opens the record from
+   anywhere while the repeat action — raised above it — stays its own target.
+   Focus on the stretched link is drawn on the row, where it reads. */
+.pl-dash-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--pl-space-lg);
+  /* No inset. With the list's box gone the row's rule IS the page's left edge,
+     so any horizontal padding here — or the negative margin that was
+     compensating for it — puts the archive a few pixels off the spine the
+     title above it sits on. That is the exact misalignment this pass exists to
+     remove, reintroduced at a smaller scale. The hover ground is flush with
+     the text, which is what a ruled table does. */
+  padding: 15px 0;
+  color: inherit;
+  transition: background var(--pl-fast) var(--pl-ease-out);
+}
+
+.pl-dash-row + .pl-dash-row { border-top: 1px solid var(--pl-line); }
+
+.pl-dash-row:hover { background: var(--pl-surface-sunken); }
+
+.pl-dash-row:has(.pl-dash-row__title:focus-visible) {
+  outline: 2px solid var(--pl-clay);
+  outline-offset: -2px;
+}
+
+.pl-dash-row__date {
+  color: var(--pl-ink-faint);
+  white-space: nowrap;
+}
+
+/* min-width:0 is what lets the title actually truncate — without it the grid
+   item refuses to shrink below its content and the score gets pushed off the
+   row on a narrow viewport. */
+.pl-dash-row__main { min-width: 0; }
+
+.pl-dash-row__title {
+  display: block;
+  font-size: var(--pl-text-body);
+  font-weight: 500;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: none;
+  color: inherit;
+}
+
+.pl-dash-row__title::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.pl-dash-row__title:focus-visible { outline: none; }
+
+.pl-dash-row__meta {
+  font-size: var(--pl-text-caption);
+  color: var(--pl-ink-faint);
+}
+
+.pl-dash-row__result {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pl-dash-row__score { font-size: 21px; }
+
+.pl-dash-row__band {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Raised above the stretched title link so it can be reached. Quiet at rest,
+   and it takes the product's colour under the cursor — it is the one action
+   on the archive that starts something rather than reading it. */
+.pl-dash-row__again {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  font-size: var(--pl-text-small);
+  font-weight: 500;
+  color: var(--pl-ink-muted);
+  text-decoration: none;
+  border-bottom: 1px solid var(--pl-line-strong);
+  transition: color var(--pl-fast) var(--pl-ease-out), border-color var(--pl-fast) var(--pl-ease-out);
+}
+
+.pl-dash-row__again:hover,
+.pl-dash-row__again:focus-visible {
+  color: var(--pl-clay);
+  border-bottom-color: var(--pl-clay);
+}
+
+/* A rehearsal you can still walk back into is the only row worth acting on, so
+   it is the only one that gets the loud colour. */
+.pl-dash-row__open {
+  font-size: var(--pl-text-caption);
+  color: var(--pl-clay-deep);
+  border: 1px solid var(--pl-clay);
+  border-radius: var(--pl-radius-sm);
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+
+.pl-dash-row__quiet {
+  font-size: var(--pl-text-caption);
+  color: var(--pl-ink-faint);
+  white-space: nowrap;
+}
+
+.pl-dash-recent { margin-bottom: var(--pl-space-xl); }
+
+/* The section head above the list: a title and its quota note on one baseline. */
+.pl-dash-sec {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--pl-space-md);
+  margin-bottom: var(--pl-space-lg);
+}
+
+/* Composes .pl-sec-title; only the margin differs, because here the title
+   shares a baseline with the quota note rather than opening a block. */
+.pl-dash-sec__title { margin: 0; }
+
+.pl-dash-sec__note {
+  font-size: var(--pl-text-small);
+  color: var(--pl-ink-faint);
+}
+
+/* At phone width the quota note drops under the title rather than squeezing it
+   to two words. */
+@media (max-width: 520px) {
+  .pl-dash-sec { flex-direction: column; gap: var(--pl-space-xs); }
+  /* The date joins the meta line and the row folds to deal | result | again. */
+  .pl-dash-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    padding-inline: 0;
+    gap: var(--pl-space-md);
+  }
+  .pl-dash-row__date { display: none; }
+  .pl-dash-row__band { display: none; }
+  .pl-dash-next { padding: 22px 20px 18px; }
+  .pl-dash-next__clear { margin-left: 0; }
+}
+
+/* ── Progress ───────────────────────────────────────────────────────────── */
+
+/* The trend table. One row per dimension: what it is, where you are, the shape
+   of how you got there, and the movement.
+
+   The row used to be an inline grid on the element plus a runtime <style> tag
+   further down the component that overrode it with !important at 760px. Two
+   sources of truth for one layout, one of them injected at render, and the
+   !important existed only to beat the inline style it was fighting. Both live
+   here now and neither needs to shout. */
+/* NOT a card. /progress used to stack three of them — this table, the overall
+   trajectory above it and the blind-spot slab above that — three bordered
+   boxes of the same width down one column, each one a container that existed
+   only to hold a background and an edge. That is the shape the brief calls
+   CARD → CARD → CARD, and it is what makes a page of readings look like a
+   marketing dashboard rather than like data.
+
+   None of the three needed a box. Each already opens with a .pl-stamp, which
+   is the product's section marker, and the rules between rows already do all
+   the grouping a reader needs. So the boxes are gone and the rules stay: the
+   page reads as one document with three registers in it, which is what it is.
+   The top rule under the heading is the only edge left, and it earns its place
+   by saying where the table starts. */
+.pl-trend {
+  margin-bottom: clamp(30px, 5vw, 44px);
+  border-top: 1px solid var(--pl-line-strong);
+}
+
+.pl-trend-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.3fr) 64px 1fr 76px;
+  gap: 18px;
+  align-items: center;
+  padding: 16px 0;
+}
+
+.pl-trend-row + .pl-trend-row { border-top: 1px solid var(--pl-line); }
+
+.pl-trend-row__label {
+  font-size: var(--pl-text-body);
+  font-weight: 600;
+}
+
+/* The dimension's own question, from lib/negotiation/dimensions.ts. It is what
+   makes the row legible to someone who has not memorised five labels. */
+.pl-trend-row__q {
+  font-size: var(--pl-text-caption);
+  color: var(--pl-ink-faint);
+  line-height: 1.4;
+  margin-top: 2px;
+  text-wrap: pretty;
+}
+
+.pl-trend-row__score { font-size: 28px; }
+
+.pl-trend-row__move {
+  font-size: var(--pl-text-small);
+  font-weight: 500;
+}
+
+.pl-trend-row__end { text-align: right; }
+
+.pl-trend-row__none {
+  font-size: var(--pl-text-caption);
+  color: var(--pl-ink-faint);
+}
+
+/* ── Blind spots ────────────────────────────────────────────────────────── */
+
+/* What keeps getting left on the table, summed over every rehearsal.
+   Sits above the trends because it is the page's own question answered in one
+   sentence, and because it is the only reading here with ground truth
+   underneath it — every lever counted was authored before the rehearsal.
+
+   Drawn as the debrief's ledger is: a register with the fraction written out,
+   not a chart. Bars per kind would invite comparison between categories that
+   are not comparable, so the bar here is a rule the fraction sits on rather
+   than a value to read off. */
+/* This was the one hard-shadowed slab on /progress, sitting directly above two
+   plain bordered boxes — three containers, three different treatments, for
+   three sections of one page. The offset shadow is the product's signal for an
+   object you can pick up or press; a read-only summary is neither, so it was
+   decoration, and decoration on exactly one of three siblings is the thing
+   that reads as arbitrary.
+
+   It keeps the emphasis it had earned, by position and by scale: it is first
+   on the page and it carries the only large figure. */
+.pl-blind {
+  margin-bottom: clamp(34px, 5vw, 48px);
+  /* Narrower than the trend table underneath, on purpose. This block is a
+     count and a sentence about it; the table is five rows of charted data that
+     genuinely wants the width. Giving them the same measure is the uniformity
+     the brief warns about — two different kinds of content at one width
+     because one container happened to be there. */
+  max-width: 48rem;
+}
+
+.pl-blind__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pl-blind__count {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+}
+
+.pl-blind__of {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pl-ink-faint);
+}
+
+/* A reading measure, not the container's. This sentence is the page's own
+   question answered in prose, and it was running the full 950px — about 110
+   characters a line, which is roughly twice what a reader tracks comfortably.
+   The container is wide because the TABLE below wants to be; a paragraph
+   inside it does not inherit that need. */
+.pl-blind__read {
+  margin: 10px 0 20px;
+  max-width: 62ch;
+  font-size: var(--pl-text-body);
+  line-height: 1.6;
+  color: var(--pl-ink-muted);
+  text-wrap: pretty;
+}
+
+.pl-blind__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--pl-line);
+}
+
+/* Left-packed rather than justified across the container. The bar used to be
+   a 1fr column, so on a desktop a 2-of-9 reading drew a 30px fill followed by
+   600px of empty track with the fraction stranded at the far right edge — a
+   row you have to travel to read. Capping the track makes the four kinds
+   scannable as a block and puts the fraction back beside the thing it counts. */
+.pl-blind__row {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 24rem) 3.2rem;
+  justify-content: start;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--pl-line);
+}
+
+.pl-blind__kind {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pl-ink-faint);
+}
+
+.pl-blind__bar {
+  height: 3px;
+  background: var(--pl-surface-sunken);
+  display: block;
+}
+
+/* Citron: the colour this product reserves for a thing you found out. The
+   fill is what you got, so the empty remainder is the reading. */
+.pl-blind__fill {
+  display: block;
+  height: 100%;
+  background: var(--pl-citron-deep);
+}
+
+.pl-blind__frac {
+  font-size: var(--pl-text-small);
+  color: var(--pl-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Says that a zero on the Fixed row is not a cost. Set quieter than the free
+   line below it, because it is a correction rather than a finding. */
+.pl-blind__foot {
+  margin: 12px 0 0;
+  max-width: 66ch;
+  font-size: var(--pl-text-caption);
+  line-height: 1.55;
+  color: var(--pl-ink-faint);
+  text-wrap: pretty;
+}
+
+/* The free lever, which is the one fact on this page worth acting on. */
+.pl-blind__free {
+  margin: 14px 0 0;
+  max-width: 62ch;
+  padding-left: 12px;
+  border-left: 2px solid var(--pl-clay);
+  font-size: var(--pl-text-small);
+  line-height: 1.55;
+  color: var(--pl-ink-muted);
+  text-wrap: pretty;
+}
+
+@media (max-width: 560px) {
+  .pl-blind__head { flex-direction: column; gap: 6px; }
+  .pl-blind__row { grid-template-columns: 4.6rem minmax(0, 1fr) 3rem; gap: 10px; }
+}
+
+/* The overall trajectory, above the per-dimension table. */
+/* Same reasoning as .pl-trend: the heading and the endpoints below the line
+   are the boundary. A 950px-wide bordered rectangle around a sparkline is a
+   frame around a frame. */
+.pl-trend-overall {
+  margin-bottom: clamp(30px, 5vw, 44px);
+  padding-bottom: 4px;
+}
+
+.pl-trend-overall .pl-stamp { margin-bottom: 0; }
+
+.pl-trend-overall__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: var(--pl-space-lg);
+}
+
+.pl-trend-overall__move {
+  font-size: var(--pl-text-small);
+  font-weight: 500;
+}
+
+/* The two numbers the line is drawn between. Written at the ends it runs
+   between rather than on the points themselves, so they stay legible at every
+   width and the line keeps the card to itself. */
+.pl-trend-overall__ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 10px;
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pl-ink-faint);
+}
+
+.pl-trend-overall__ends .pl-figure {
+  font-size: var(--pl-text-body);
+  letter-spacing: normal;
+  color: var(--pl-ink);
+  margin-right: 4px;
+}
+
+/* The plan gate. Tinted rather than drawn in full clay: it is information about
+   what you are not seeing, not an alarm. */
+.pl-trend-gate {
+  background: var(--pl-clay-soft);
+  border: 1px solid var(--pl-clay);
+  border-radius: var(--pl-radius-md);
+  padding: 20px 22px;
+}
+
+.pl-trend-gate__title {
+  font-size: var(--pl-text-h3);
+  font-weight: 600;
+  margin: 0 0 var(--pl-space-sm);
+}
+
+.pl-trend-gate__body {
+  font-size: var(--pl-text-body);
+  color: var(--pl-ink-muted);
+  line-height: 1.6;
+  margin: 0 0 var(--pl-space-lg);
+  max-width: 60ch;
+  text-wrap: pretty;
+}
+
+/* At narrow widths the sparkline is the first thing to become useless at
+   column width, so it drops to its own full-width row under the label and
+   score rather than being squeezed between them. */
+@media (max-width: 760px) {
+  .pl-trend-row {
+    grid-template-columns: 1fr auto auto;
+    gap: var(--pl-space-md);
+    padding: 16px var(--pl-space-lg);
+  }
+  .pl-trend-row__spark {
+    grid-column: 1 / -1;
+    order: 1;
+  }
+}
+
+/* ── The case index ─────────────────────────────────────────────────────── */
+
+/* The library reads as an index, not as a shelf.
+
+   It was six .pl-slab case files in a two-column grid: six ink borders, six
+   hard offsets, and rows whose two cards never matched height because one
+   premise wrapped to two lines and the other did not — so the "ACROSS THE
+   TABLE" rule that ends each card landed at a different y on the left and the
+   right of every row. Six identical bordered rectangles in a grid is the most
+   recognisable layout on the internet, and it is the one the landing page
+   already refused: see .pl-lp-index, whose note argues that a list reads
+   faster than a grid at exactly the moment someone is scanning for their own
+   situation. That is more true here, on the page where they actually are.
+
+   So the same decision, in the product's register rather than the loud one.
+   Four columns, ruled, all of them aligned by construction: what kind of deal,
+   the deal itself, who the vendor puts on the call, and what it will cost in
+   minutes. The counterpart stays the last thing read, because recognising the
+   person across the table is what tells someone this is their renewal. */
+
+/* Sized to a search term, not to the page. .pl-input is width:100% because a
+   field in a form column should fill it; a search box above a six-row index is
+   not in a form column, and a 952px input for the word "renewal" is the shape
+   that makes a working surface look like a template. */
+.pl-lib-search {
+  max-width: 26rem;
+  margin-bottom: var(--pl-space-lg);
+}
+
+.pl-lib-index {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 2px solid var(--pl-ink);
+}
+
+.pl-case {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1.6fr) minmax(0, 1fr) 4.5rem;
+  gap: 24px;
+  align-items: baseline;
+  padding: 18px 0 20px;
+  border-bottom: 1px solid var(--pl-line-strong);
+  color: inherit;
+  text-decoration: none;
+  transition: background var(--pl-fast) var(--pl-ease-out);
+}
+
+.pl-case:hover { background: var(--pl-surface-sunken); }
+
+.pl-case:hover .pl-case__title {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--pl-clay);
+}
+
+.pl-case:focus-visible {
+  outline: 2px solid var(--pl-clay);
+  outline-offset: -2px;
+}
+
+.pl-case__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.pl-case__cat { color: var(--pl-ink-faint); }
+.pl-case__diff { font-weight: 600; }
+
+.pl-case__time {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pl-ink-faint);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* min-width:0 so a long premise wraps inside the column instead of forcing the
+   grid wider than the page. */
+.pl-case__deal { min-width: 0; }
+
+.pl-case__title {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.pl-case__premise {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--pl-ink-muted);
+  margin: 0;
+  max-width: 52ch;
+  text-wrap: pretty;
+}
+
+.pl-case__foot .pl-stamp { margin-bottom: 5px; }
+
+.pl-case__role { display: block; font-size: 13.5px; color: var(--pl-ink); font-weight: 500; line-height: 1.4; }
+
+/* Three steps down. At tablet the minutes fold under the category, which is
+   the only pair on the row that is pure metadata; below that the row becomes
+   two columns with the counterpart under the deal, and the entry keeps
+   reading top to bottom in the same order it does on a desktop. */
+@media (max-width: 1000px) {
+  .pl-case {
+    grid-template-columns: 9.5rem minmax(0, 1.6fr) minmax(0, 1fr);
+  }
+  .pl-case__time { grid-column: 1; grid-row: 2; text-align: left; }
+}
+
+@media (max-width: 720px) {
+  .pl-case {
+    grid-template-columns: 8rem minmax(0, 1fr);
+    gap: 8px 18px;
+  }
+  .pl-case__foot { grid-column: 2; }
+}
+
+@media (max-width: 460px) {
+  .pl-case {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .pl-case__meta { flex-direction: row; gap: 12px; }
+  .pl-case__time { grid-column: 1; grid-row: auto; }
+  .pl-case__foot { grid-column: 1; }
+}
+
+/* ── Minimum target size ────────────────────────────────────────────────── */
+
+/* WCAG 2.2 AA, 2.5.8 Target Size (Minimum): 24x24 CSS pixels.
+
+   Native checkboxes render around 13px, which fails outright and is genuinely
+   awkward to hit on a phone. Scaling the box would blur it, so the control
+   keeps its drawn size and gains a transparent outset hit area instead.
+
+   Inline links inside a sentence are deliberately NOT touched: 2.5.8 exempts
+   targets in a line of text, and padding them would break the leading of the
+   paragraph they sit in. */
+input[type="checkbox"],
+input[type="radio"] {
+  min-width: 16px;
+  min-height: 16px;
+  outline-offset: 3px;
+  /* The drawn box stays 16px; the touch target around it is 24px. */
+  margin: 4px;
+}
+
+/* Standalone text links and bare buttons that are not inline in a sentence.
+   Applied by class rather than to every <a>, so a link inside a paragraph is
+   left alone. */
+.pl-tap {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+}
+
+/* /pricing while PLAN_PRICES are placeholders (PRICING_IS_DEMO in
+   lib/plans.ts). Ink on a quiet ground: a label, not an alarm. */
+.pl-demo-note {
+  max-width: 34em;
+  margin: 18px auto 22px;
+  padding: 10px 14px;
+  border: 1px dashed var(--pl-line-strong);
+  border-radius: 4px;
+  background: var(--pl-surface);
+  color: var(--pl-ink);
+  font-size: var(--pl-text-small);
+  line-height: 1.55;
+  text-align: left;
+}
+
+/* The debrief's two standalone text controls — the Dashboard breadcrumb and
+   each moment's "Jump to the line" — measured 17px and 21px tall, under the
+   24px target size (WCAG 2.2, 2.5.8). Padding grows the hit area; the
+   underline is moved up by the same amount so it still sits under the words. */
+.pl-db-head__back,
+.pl-db-moment__jump {
+  display: inline-block;
+  padding-block: 4px;
+  background-position: 0 calc(100% - 4px);
+}
+
+/* ── The bench ──────────────────────────────────────────────────────────── */
+
+/* Counterparts are opponents, so the page is a lineup rather than a stack of
+   documentation cards. Each one is a dossier on a person who will do specific
+   things to you, numbered like a file, and it ends on the TELL — the thing you
+   learn to read, which is the most valuable line on the page and the reason
+   the section exists. */
+
+.pl-cp-section { margin-bottom: 18px; }
+
+/* The bench, as a roster rather than a set of character cards.
+
+   Each entry used to be a 1.5px steel box throwing a hard steel offset, five
+   of them in a two-column grid — so the last one sat alone beside half a row
+   of nothing, and the hole read as a missing sixth counterpart rather than as
+   the end of the list. The heavier the object, the louder its absence.
+
+   Unboxing fixes both problems at once. The offset shadow is the product's
+   signal for something you can press or pick up; these are reference entries
+   you read, so it was costume. A rule above each one does the separating, the
+   steel stays where it carries meaning — the role, the file number, the tactic
+   numerals — and an odd count now simply ends. */
+.pl-cp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 30px 40px;
+  margin-bottom: clamp(38px, 6vw, 56px);
+  align-items: start;
+}
+
+.pl-cp {
+  position: relative;
+  border-top: 2px solid var(--pl-steel);
+  padding: 18px 0 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* The file number, set into the top-right corner rather than inline with the
+   name. Composition, not another badge. */
+.pl-cp__n {
+  position: absolute;
+  top: 18px;
+  right: 0;
+  font-size: 12px;
+  color: var(--pl-steel);
+  /* Was 0.5, which put 12px steel at 2.48:1 on the card. Quiet is a reading of
+     the type, not a licence to make it unreadable — and aria-hidden covers the
+     screen reader, not the person with low vision who can still see it. 0.78
+     reads 4.9:1 and is still visibly the quietest thing on the card. */
+  opacity: 0.78;
+}
+
+.pl-cp__name {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  margin: 0 0 2px;
+  line-height: 1.1;
+  padding-right: 34px;
+}
+
+.pl-cp__role {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pl-steel);
+  margin: 0 0 14px;
+  line-height: 1.4;
+}
+
+.pl-cp__disposition {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--pl-ink-muted);
+  margin: 0 0 20px;
+  text-wrap: pretty;
+}
+
+.pl-cp__label { margin-bottom: 10px; }
+
+.pl-cp__tactics {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  flex: 1;
+}
+
+.pl-cp__tactics li {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 9px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--pl-ink-muted);
+}
+
+.pl-cp__tactics .pl-index { color: var(--pl-steel); opacity: 0.65; }
+
+/* Citron as a rule, never as the type — see the token block. The wash behind
+   it is gone: five pale-yellow panels down one page is the discovery colour
+   used as a background treatment, and the token's whole value is that it marks
+   one moment. A rule marks the line without painting the page.
+
+   The rule is what says "this is the part you are here for", which is a
+   structural claim and the only kind of claim decoration is allowed to make. */
+.pl-cp__tell {
+  border-left: 3px solid var(--pl-citron-deep);
+  padding: 2px 0 2px 14px;
+  margin-top: auto;
+}
+
+.pl-cp__tell .pl-stamp { margin-bottom: 7px; }
+
+.pl-cp__tell p {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--pl-ink);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+/* The ones you wrote yourself, in the same shape as the bench above them.
+
+   They were a card — surface fill, four borders, a clay left rule — built out
+   of inline styles in app/counterparts/page.tsx, so one page drew the same
+   kind of object two different ways depending on who authored it. The clay
+   edge is kept and is now the only difference, which is the one that means
+   something: clay is the user's colour everywhere in this product, so a
+   counterpart you wrote is marked in it and the five you were given are
+   marked in steel. */
+/* The section's own header row: the stamp takes the width, the action sits at
+   the end of it. Was three inline style props on the page doing what the
+   stamp's own trailing rule already does. */
+.pl-cp-own-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.pl-cp-own-head .pl-stamp { flex: 1; }
+
+.pl-cp-own {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 48rem;
+}
+
+.pl-cp-own__item {
+  border-top: 2px solid var(--pl-clay);
+  padding: 14px 0 0;
+}
+
+.pl-cp-own__head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pl-cp-own__name {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.pl-cp-own__role {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pl-clay-deep);
+}
+
+/* Destructive, so quiet until it is looked for — the same treatment the
+   playbook gives its own Remove. */
+.pl-cp-own__delete {
+  appearance: none;
+  margin-left: auto;
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  font-family: inherit;
+  font-size: var(--pl-text-caption);
+  color: var(--pl-ink-faint);
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color var(--pl-fast) var(--pl-ease-out);
+}
+
+.pl-cp-own__delete:hover { color: var(--pl-clay); }
+
+.pl-cp-own__disposition {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--pl-ink-muted);
+  margin: 8px 0 0;
+  max-width: 62ch;
+  text-wrap: pretty;
+}
+
+.pl-cp-own__note {
+  font-size: var(--pl-text-small);
+  color: var(--pl-ink-faint);
+  margin: 4px 0 0;
+}
+
+@media (max-width: 700px) {
+  .pl-cp-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Rate ledger ────────────────────────────────────────────────────────── */
+
+/* Pricing as a rate card, not four equal cards with a highlighted middle one.
+   Parley meters REHEARSALS, so the rehearsal count is the figure each row is
+   built around — it is the number that actually differs between plans in a way
+   someone can reason about before they buy, and the price follows it rather
+   than leading.
+
+   Rows rather than columns because plans are an ordered ladder: reading down
+   the count column tells the whole story in one glance. */
+
+.pl-rate {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 56px;
+}
+
+.pl-rate__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 158px 1fr auto;
+  gap: 26px;
+  align-items: center;
+  background: var(--pl-surface);
+  border: 1px solid var(--pl-line-strong);
+  border-radius: var(--pl-radius-md);
+  padding: 22px 24px;
+  transition:
+    border-color var(--pl-base) var(--pl-ease-out),
+    transform var(--pl-base) var(--pl-ease-out);
+}
+
+.pl-rate__row:hover { border-color: var(--pl-ink); }
+
+/* The recommended plan breaks the rhythm rather than being tinted: it is the
+   one row with an ink border and a hard offset, so it sits forward of the
+   others physically instead of just being coloured in. */
+.pl-rate__row--featured {
+  border: 1.5px solid var(--pl-clay);
+  box-shadow: var(--pl-shadow-hard-clay);
+  margin-block: 8px;
+}
+
+.pl-rate__count {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 24px;
+  border-right: 1px solid var(--pl-line);
+}
+
+.pl-rate__row--featured .pl-rate__count .pl-figure { color: var(--pl-clay); }
+
+.pl-rate__unit {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pl-ink-faint);
+  /* One line. At 132px this wrapped to "REHEARSALS /" + "MO", which read as a
+     layout fault rather than as a unit. */
+  white-space: nowrap;
+}
+
+.pl-rate__name {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 5px;
+}
+
+.pl-rate__tagline {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--pl-ink-muted);
+  margin: 0;
+  max-width: 46ch;
+  text-wrap: pretty;
+}
+
+/* Extras run inline as a list of terms, not as bulleted rows. A plan's extras
+   are a footnote to the count, and setting them as a paragraph keeps them
+   that way. */
+.pl-rate__extras {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--pl-ink-faint);
+}
+
+.pl-rate__extras li { display: flex; align-items: center; gap: 8px; }
+.pl-rate__extras li:not(:last-child)::after {
+  content: "";
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+.pl-rate__buy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  min-width: 132px;
+}
+
+.pl-rate__price { display: flex; align-items: baseline; gap: 4px; }
+.pl-rate__per { font-size: 12px; color: var(--pl-ink-faint); }
+
+@media (max-width: 820px) {
+  .pl-rate__row {
+    grid-template-columns: 96px 1fr;
+    gap: 18px;
+    row-gap: 20px;
+    padding: 20px;
+  }
+  .pl-rate__count { padding-right: 18px; }
+  /* The buy column drops beneath both, spanning the row, so the price and the
+     action stay side by side instead of stacking into a narrow gutter. */
+  .pl-rate__buy {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid var(--pl-line);
+    padding-top: 16px;
+  }
+}
+
+@media (max-width: 460px) {
+  .pl-rate__row { grid-template-columns: 1fr; }
+  .pl-rate__count {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 10px;
+    padding-right: 0;
+    border-right: none;
+  }
+}
+
+/* ── Segmented control ──────────────────────────────────────────────────── */
+
+/* The alternative to a pill toggle, which is the single most recognisable
+   SaaS component there is. Squared, ruled, and labelled in the same mono face
+   as every other control label in the product. The selected option is filled
+   in ink rather than in the accent, so the control reads as a setting rather
+   than as a call to action. */
+.pl-seg {
+  display: inline-flex;
+  border: 1.5px solid var(--pl-ink);
+  border-radius: var(--pl-radius-sm);
+  overflow: hidden;
+  background: var(--pl-surface);
+  box-shadow: var(--pl-shadow-hard-sm);
+}
+
+.pl-seg__opt {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--pl-ink-muted);
+  padding: 9px 18px;
+  cursor: pointer;
+  transition: background var(--pl-fast) var(--pl-ease-out), color var(--pl-fast) var(--pl-ease-out);
+}
+
+.pl-seg__opt + .pl-seg__opt { border-left: 1.5px solid var(--pl-ink); }
+
+.pl-seg__opt:hover { background: var(--pl-surface-sunken); }
+
+.pl-seg__opt[aria-pressed="true"] {
+  background: var(--pl-ink);
+  color: var(--pl-bg);
+}
+
+/* ── Settings ───────────────────────────────────────────────────────────── */
+
+/* A utility page, deliberately quiet. It gets the product's label language and
+   controls so it belongs to the same object as everything else, and nothing
+   more — a settings screen that competes for attention is a settings screen
+   that is wrong. */
+
+.pl-set__section { margin-bottom: 36px; }
+.pl-set__section .pl-stamp { margin-bottom: 14px; }
+
+/* Confirmation that a save landed. It fades rather than appearing, because an
+   instant is exactly how long it takes to be sure nothing went wrong. */
+@keyframes pl-saved-in {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.pl-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pl-gain);
+  animation: pl-saved-in var(--pl-base) var(--pl-ease-out);
+}
+
+.pl-saved::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--pl-gain);
+}
+
+/* The same mark, reporting the opposite. A save that did not reach the server
+   has to look different from one that did, or the confirmation is decoration.
+   Deep warn rather than clay: clay is the user's own voice everywhere else in
+   this product and is not available for status. */
+.pl-saved--failed {
+  color: var(--pl-warn-deep);
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-family: var(--pl-font-sans);
+  font-size: 13px;
+}
+
+.pl-saved--failed::before {
+  background: var(--pl-warn-deep);
+}
+
+/* ── Step indicator ─────────────────────────────────────────────────────── */
+
+/* The same three-cell language the room's phase strip uses, so the product has
+   exactly one way of saying "here is where you are inside something". Squared,
+   not dots: dots read as decoration, a filling bar reads as progress.
+
+   Hidden from assistive technology and paired with a live region instead —
+   "Step 2 of 3" is more use than three unlabelled shapes. */
+.pl-steps {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 26px;
+}
+
+.pl-steps__cell {
+  height: 3px;
+  width: 34px;
+  background: var(--pl-line-strong);
+  transition: background var(--pl-base) var(--pl-ease-out);
+}
+
+.pl-steps__cell[data-on="true"] { background: var(--pl-clay); }
+
+/* ── Page heads ─────────────────────────────────────────────────────────── */
+
+/* Every interior page opened with its own hand-rolled h1 + paragraph, at four
+   slightly different sizes and three different measures. One shape instead,
+   so the library, the bench and the rate card read as rooms in one building
+   rather than as three products. */
+
+/* Interior pages get their top padding from .pl-head and their bottom gutter
+   from here, so the last card never sits flush against the footer. */
+.pl-page { padding-bottom: clamp(48px, 8vw, 80px); }
+
+/* For an interior page whose first element is not a .pl-head — the dashboard
+   leads with the dated conversation rather than with a label, and the debrief
+   leads with the reveal. They still need the same distance from the nav as
+   every other page, or the product's top margin changes depending on which
+   route you are on. Matches .pl-head's top padding exactly. */
+.pl-page--top { padding-top: clamp(32px, 5vw, 48px); }
+
+.pl-head {
+  padding: clamp(32px, 5vw, 48px) 0 clamp(20px, 3vw, 30px);
+}
+
+.pl-head--center { text-align: center; }
+
+/* The page title carries the page, and it was not carrying it.
+   At the shared h1 step it topped out at 40px inside a 950px container, which
+   put it about a third larger than its own lede — not enough contrast to read
+   as hierarchy, so every interior page opened at the same quiet volume.
+
+   The fix is SCALE, not weight and not an effect: a step of its own, topping
+   out at 52px, with the leading pulled in to 1.06 so a two-line title reads as
+   one object. It stays Source Serif at 600 deliberately — the heavy geometric
+   sans at tight tracking is the single most recognisable signature of a
+   generated landing page, and the serif is both Parley's own voice and the
+   thing that makes an interior screen read as a document you work from. */
+.pl-head__title {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: clamp(30px, 2.6vw + 16px, 52px);
+  line-height: 1.06;
+  letter-spacing: -0.028em;
+  font-weight: 600;
+  margin: 0 0 14px;
+  text-wrap: balance;
+}
+
+/* One step up from body, so title → lede → content is three distinct sizes
+   rather than a large heading and two greys that measure the same. */
+.pl-head__lede {
+  font-size: 17.5px;
+  line-height: 1.6;
+  color: var(--pl-ink-muted);
+  max-width: 58ch;
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.pl-head--center .pl-head__lede { margin-inline: auto; }
+
+.pl-head .pl-stamp { margin-bottom: 14px; }
+
+/* ── Filter chips ───────────────────────────────────────────────────────── */
+
+/* A row of toggles above a list. Squared and ruled like every other control
+   here — a pill would be the one rounded thing on a page of hard edges.
+   The active state is drawn in clay rather than merely tinted, because a chip
+   that is only 12% more orange than its neighbours is not a state. */
+
+.pl-chips {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-bottom: 26px;
+}
+
+.pl-chip {
+  appearance: none;
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 7px 12px;
+  min-height: 30px;
+  border: 1.5px solid var(--pl-line-strong);
+  background: transparent;
+  color: var(--pl-ink-muted);
+  cursor: pointer;
+  transition:
+    border-color var(--pl-fast) var(--pl-ease-out),
+    color var(--pl-fast) var(--pl-ease-out),
+    background var(--pl-fast) var(--pl-ease-out);
+}
+
+.pl-chip:hover { border-color: var(--pl-ink); color: var(--pl-ink); }
+
+.pl-chip[aria-pressed="true"] {
+  background: var(--pl-clay);
+  border-color: var(--pl-clay);
+  color: var(--pl-on-clay);
+}
+
+/* ── Pick list ──────────────────────────────────────────────────────────── */
+
+/* A column of selectable cards: onboarding's scenario picker and the brief's
+   counterpart picker were two separately-styled versions of the same control.
+   Selection is a clay rule down the left edge plus a border, not a fill, so a
+   long list of options does not become a wall of orange. */
+
+.pl-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pl-pick__opt {
+  appearance: none;
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  color: var(--pl-ink);
+  background: var(--pl-surface);
+  border: 1px solid var(--pl-line);
+  border-left: 3px solid transparent;
+  padding: 13px 16px;
+  cursor: pointer;
+  transition:
+    border-color var(--pl-fast) var(--pl-ease-out),
+    background var(--pl-fast) var(--pl-ease-out);
+}
+
+.pl-pick__opt:hover { border-color: var(--pl-line-strong); }
+
+.pl-pick__opt[aria-pressed="true"] {
+  border-color: var(--pl-line-strong);
+  border-left-color: var(--pl-clay);
+  background: var(--pl-surface-sunken);
+}
+
+.pl-pick__eyebrow {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pl-ink-faint);
+  display: block;
+  margin-bottom: 5px;
+}
+
+/* Both are spans, not headings: a <button>'s content model is phrasing only,
+   so they are made block here rather than marked up as blocks. */
+.pl-pick__title { display: block; font-size: 15px; font-weight: 500; margin: 0 0 3px; }
+
+.pl-pick__body {
+  display: block;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--pl-ink-muted);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+/* ── The brief ──────────────────────────────────────────────────────────── */
+
+/* The last screen before the room, and the one that makes the rehearsal
+   honest: you commit to an objective on a calm page, and the debrief later
+   holds you to it. It was the largest remaining island of page-local inline
+   styles, which is why a screen this important did not look like it belonged
+   to the same product as the room it opens.
+
+   The page is laid out as a file: what you know on the left, what you cannot
+   do beside it, what you are not told below, and who you face last. */
+
+.pl-brief__meta {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 18px 0 10px;
+}
+
+.pl-brief__cat { color: var(--pl-ink-faint); }
+.pl-brief__diff { color: var(--pl-clay-deep); font-weight: 600; }
+.pl-brief__time { color: var(--pl-ink-faint); letter-spacing: 0; margin-left: auto; }
+
+.pl-brief__title {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: var(--pl-text-h1);
+  letter-spacing: -0.025em;
+  font-weight: 600;
+  line-height: 1.15;
+  margin: 0 0 28px;
+  text-wrap: balance;
+}
+
+/* The repeat notice. Steel, because it is about the counterpart — and it is the
+   product's main nudge toward the loop that actually moves scores. */
+.pl-brief__again {
+  background: var(--pl-steel-soft);
+  border-left: 3px solid var(--pl-steel);
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.55;
+  margin-bottom: 24px;
+}
+
+.pl-brief__situation {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: 17px;
+  line-height: 1.7;
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.pl-brief__cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 30px;
+}
+
+/* Your objective is the one line you must not lose track of, so it is the only
+   thing on the page drawn as a hard-edged object in your own colour. */
+.pl-brief__win {
+  background: var(--pl-clay-soft);
+  border: 1.5px solid var(--pl-clay);
+  box-shadow: var(--pl-shadow-hard-clay);
+  padding: 20px 22px;
+}
+
+.pl-brief__limits {
+  background: var(--pl-surface);
+  border: 1px solid var(--pl-line);
+  padding: 20px 22px;
+}
+
+.pl-brief__win p { font-size: 15px; line-height: 1.6; margin: 0; }
+
+.pl-brief__list { margin: 0; padding-left: 17px; }
+
+.pl-brief__list li {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--pl-ink-muted);
+  margin-bottom: 7px;
+}
+
+.pl-brief__list li:last-child { margin-bottom: 0; }
+
+/* What you are not told. A dashed edge, because it is the one block on the page
+   describing something that is not there. */
+.pl-brief__sealed {
+  border: 1px dashed var(--pl-line-strong);
+  padding: 18px 22px;
+  margin-bottom: 32px;
+}
+
+.pl-brief__sealed p {
+  font-size: 14.5px;
+  line-height: 1.62;
+  color: var(--pl-ink-muted);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+/* The count, ruled off from the explanation above it. It is a different kind
+   of statement — a figure about this specific deal rather than a description
+   of the mechanic — so it is separated rather than appended. */
+.pl-brief__sealed p + .pl-brief__sealed-count {
+  margin-top: 13px;
+  padding-top: 13px;
+  border-top: 1px dashed var(--pl-line);
+}
+
+.pl-brief__sealed-count strong { color: var(--pl-ink); }
+
+/* The counterpart picker. Same control as .pl-pick, laid out two-up and marked
+   in steel rather than clay — it is a choice about them, not about you. */
+.pl-brief__cast {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pl-brief__who {
+  appearance: none;
+  text-align: left;
+  font-family: inherit;
+  color: var(--pl-ink);
+  background: transparent;
+  border: 1px solid var(--pl-line);
+  border-left: 3px solid var(--pl-line);
+  padding: 16px 18px;
+  cursor: pointer;
+  transition:
+    border-color var(--pl-fast) var(--pl-ease-out),
+    background var(--pl-fast) var(--pl-ease-out);
+}
+
+.pl-brief__who:hover { border-color: var(--pl-line-strong); }
+
+.pl-brief__who[aria-pressed="true"] {
+  background: var(--pl-surface);
+  border-color: var(--pl-steel);
+  border-left-color: var(--pl-steel);
+}
+
+.pl-brief__who-name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.pl-brief__who-mine {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: var(--pl-text-micro);
+  font-weight: 400;
+  color: var(--pl-ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pl-brief__who-role {
+  display: block;
+  font-size: 12px;
+  color: var(--pl-ink-faint);
+  margin-bottom: 9px;
+}
+
+.pl-brief__who-note {
+  display: block;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--pl-ink-muted);
+}
+
+.pl-brief__expect {
+  margin-top: 14px;
+  padding: 14px 18px;
+  background: var(--pl-surface-sunken);
+}
+
+/* ── The door ───────────────────────────────────────────────────────────── */
+
+/* The last block on the brief, and the threshold into the room. Drawn in the
+   room's register — the .pl-room scope flips every token, so the button, the
+   stamp and the redaction bars inside are the room's own — and lit by the
+   same one lamp. It is the only dark object on any paper surface, which is
+   what makes it read as a door rather than as a dark card. */
+.pl-door {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(200px, 0.8fr);
+  gap: clamp(24px, 4vw, 48px);
+  align-items: end;
+  margin-top: 12px;
+  padding: clamp(26px, 4vw, 40px) clamp(22px, 4vw, 40px);
+  background: var(--pl-bg);
+  color: var(--pl-ink);
+  border-radius: var(--pl-radius-md);
+  box-shadow: var(--pl-shadow-hard-steel);
+  background-image: radial-gradient(
+    120% 90% at 10% 0%,
+    rgba(224, 103, 60, 0.09) 0%,
+    transparent 58%
+  );
+}
+
+.pl-door .pl-stamp { margin-bottom: 14px; }
+
+.pl-door__title {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: var(--pl-text-h1);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin: 0 0 12px;
+  text-wrap: balance;
+}
+
+.pl-door__note {
+  font-size: var(--pl-text-body);
+  line-height: 1.6;
+  color: var(--pl-ink-muted);
+  margin: 0 0 24px;
+  max-width: 44ch;
+  text-wrap: pretty;
+}
+
+.pl-door__go {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pl-door__time { color: var(--pl-ink-faint); }
+
+/* The sealed block on the door — the same object that waits in the room. */
+.pl-door__seal {
+  padding: 16px 16px 14px;
+  border: 1px solid var(--pl-line-strong);
+  border-radius: var(--pl-radius-md);
+  background: var(--pl-steel-soft);
+}
+
+.pl-door__seal .pl-stamp { margin-bottom: 12px; }
+
+/* Closing. A plane in the room's ground rises from the bottom edge over the
+   whole viewport while the room is opened on the server; the room is what is
+   behind it. `both` holds the closed frame until the route changes. */
+@keyframes pl-door-rise {
+  from { clip-path: inset(100% 0 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+
+.pl-door-close {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  background: var(--pl-bg);
+  background-image: radial-gradient(
+    120% 80% at 12% 0%,
+    rgba(224, 103, 60, 0.07) 0%,
+    transparent 58%
+  );
+  animation: pl-door-rise var(--pl-stage) var(--pl-ease-in-out) both;
+}
+
+@media (max-width: 700px) {
+  .pl-door { grid-template-columns: 1fr; align-items: start; }
+  .pl-door__go .pl-btn { width: 100%; }
+}
+
+@media (max-width: 700px) {
+  .pl-brief__cols,
+  .pl-brief__cast { grid-template-columns: 1fr; }
+}
+
+/* ── Prose ──────────────────────────────────────────────────────────────── */
+
+/* The reading pages — about, FAQ, support, the legal pages. They are the only
+   surfaces in the product that are genuinely a page of text, and they are read
+   rather than scanned, so they get a wider measure and a larger body size than
+   a screen full of controls would.
+
+   These were four components of inline style objects carrying 17px, 21px and
+   16px — none of which are on the scale — at a 720px measure where LAYOUT
+   caps reading at 680. The abstraction was right and only its values had
+   drifted, which is the failure mode a shared shell is supposed to prevent. */
+
+.pl-prose {
+  font-size: var(--pl-text-prose);
+  line-height: 1.7;
+  color: var(--pl-ink-muted);
+}
+
+/* Headings inside prose take the serif and sit closer to the paragraph they
+   introduce than to the one they follow, so a section reads as a block rather
+   than as an evenly-spaced list of lines. */
+.pl-prose__h {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: var(--pl-text-h2);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--pl-ink);
+  margin: var(--pl-space-xxl) 0 var(--pl-space-md);
+  text-wrap: balance;
+}
+
+/* The first heading on a page does not need to push away from a paragraph
+   that is not there. */
+.pl-prose > .pl-prose__h:first-child { margin-top: 0; }
+
+.pl-prose p {
+  margin: 0 0 var(--pl-space-lg);
+  text-wrap: pretty;
+}
+
+.pl-prose ul,
+.pl-prose ol {
+  margin: 0 0 var(--pl-space-lg);
+  padding-left: 22px;
+}
+
+.pl-prose li {
+  margin-bottom: var(--pl-space-sm);
+  text-wrap: pretty;
+}
+
+.pl-prose li::marker { color: var(--pl-ink-faint); }
+
+.pl-prose strong { color: var(--pl-ink); font-weight: 600; }
+
+/* A control that follows a field inside a reading page. The field carries no
+   bottom margin of its own, because in a form the spacing belongs to the
+   group, not to the input. */
+.pl-support__send { margin-top: var(--pl-space-md); }
+
+/* The date under a lede. Quiet, and never the thing you read first. */
+.pl-prose-updated {
+  font-size: var(--pl-text-small);
+  color: var(--pl-ink-faint);
+  margin: var(--pl-space-sm) 0 0;
+}
+
+/* An unconfigured business fact — legal entity, postal address, support
+   address, domain. Drawn as a visible marker rather than a plausible
+   placeholder, so it cannot be mistaken for a real value or ship as one.
+   Warn-coloured because it is a note to whoever deploys this, not to the
+   reader. */
+.pl-configure {
+  font-family: var(--pl-font-mono, ui-monospace, monospace);
+  font-size: 0.85em;
+  padding: 1px 6px;
+  border-radius: var(--pl-radius-sm);
+  background: var(--pl-warn-soft);
+  color: var(--pl-warn-deep);
+  /* Wraps at its spaces rather than nowrap. The longest of these —
+     "[configure: jurisdiction-specific rights]" — measured 367px, which is
+     wider than a 390px phone minus its gutters, so the privacy page carried a
+     horizontal scrollbar. These sit inside running prose and should break like
+     it; overflow-wrap is the backstop for a future marker with no space in it. */
+  overflow-wrap: anywhere;
+}
+
+/* ── FAQ ────────────────────────────────────────────────────────────────── */
+
+/* A ruled list of disclosures inside one object, rather than a stack of cards.
+
+   The previous version hid the native disclosure marker and put nothing in its
+   place, via a <style> tag injected from the component. A row that expands and
+   gives no sign that it expands is not a quiet design, it is a hidden one, so
+   the marker is drawn here instead: a caret that rotates when the row opens. */
+
+.pl-faq-group { margin-bottom: var(--pl-space-xxl); }
+
+.pl-faq-group > .pl-stamp { margin-bottom: var(--pl-space-md); }
+
+.pl-faq {
+  background: var(--pl-surface);
+  border: 1px solid var(--pl-line-strong);
+  border-radius: var(--pl-radius-md);
+  overflow: hidden;
+}
+
+.pl-faq__item { padding: 0; }
+
+.pl-faq__item + .pl-faq__item { border-top: 1px solid var(--pl-line); }
+
+.pl-faq__q {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--pl-space-md);
+  padding: 16px var(--pl-space-xl);
+  font-family: var(--pl-font-sans, system-ui, sans-serif);
+  font-size: var(--pl-text-body);
+  font-weight: 500;
+  color: var(--pl-ink);
+  cursor: pointer;
+  list-style: none;
+  transition: background var(--pl-fast) var(--pl-ease-out);
+}
+
+/* Safari draws its own triangle from this pseudo-element and ignores
+   list-style, so it has to be removed explicitly as well. */
+.pl-faq__q::-webkit-details-marker { display: none; }
+
+.pl-faq__q:hover { background: var(--pl-surface-sunken); }
+
+.pl-faq__q:focus-visible {
+  outline: 2px solid var(--pl-clay);
+  outline-offset: -2px;
+}
+
+/* The caret. Two borders on a rotated square — no icon dependency for a shape
+   that is four lines of CSS. */
+.pl-faq__q::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  margin-top: 5px;
+  border-right: 1.5px solid var(--pl-ink-faint-line);
+  border-bottom: 1.5px solid var(--pl-ink-faint-line);
+  transform: rotate(45deg);
+  transform-origin: center;
+  transition: transform var(--pl-fast) var(--pl-ease-out);
+}
+
+.pl-faq__item[open] .pl-faq__q::after {
+  transform: rotate(-135deg);
+  border-color: var(--pl-clay);
+}
+
+.pl-faq__a {
+  font-size: var(--pl-text-body);
+  line-height: 1.68;
+  color: var(--pl-ink-muted);
+  margin: 0;
+  padding: 0 var(--pl-space-xl) 18px;
+  max-width: 64ch;
+  text-wrap: pretty;
+}
+
+@media (max-width: 520px) {
+  .pl-faq__q { padding-inline: var(--pl-space-lg); }
+  .pl-faq__a { padding-inline: var(--pl-space-lg); }
+}
+
+/* ── Playbook ───────────────────────────────────────────────────────────── */
+
+/* Notes the user keeps about their own negotiating. The composer is a single
+   surface that holds a field, a classification and one action, rather than
+   three controls floating next to each other — the box here IS the grouping,
+   which is the test a container has to pass on this page.
+
+   It is sized to what is written in it. At the container's full 952px it was
+   an instrument for one sentence stretched across a desk: the dimension select
+   ran the whole width for five options, and `margin-left: auto` threw "Add
+   note" seven hundred pixels away from the control it follows. A composer is
+   the width of the thing being composed. */
+.pl-pb-composer {
+  background: var(--pl-surface);
+  border: 1px solid var(--pl-line-strong);
+  border-radius: var(--pl-radius-md);
+  padding: 18px 20px;
+  margin-bottom: clamp(26px, 4vw, 34px);
+  max-width: 46rem;
+}
+
+/* The field inside the composer carries no border of its own — the card is
+   already the boundary, and a box inside a box is the thing that makes a form
+   look assembled. It keeps its focus ring, which is the part that matters. */
+.pl-pb-composer__field {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-family: var(--pl-font-sans, system-ui, sans-serif);
+  font-size: var(--pl-text-body);
+  line-height: 1.6;
+  color: var(--pl-ink);
+  resize: vertical;
+}
+
+.pl-pb-composer__field:focus-visible {
+  outline: 2px solid var(--pl-clay);
+  outline-offset: 4px;
+  border-radius: var(--pl-radius-sm);
+}
+
+.pl-pb-composer__bar {
+  display: flex;
+  gap: var(--pl-space-md);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: var(--pl-space-md);
+  padding-top: var(--pl-space-md);
+  border-top: 1px solid var(--pl-line);
+}
+
+/* The select is a classification with five options, not a text field: it is
+   sized to its longest label rather than inheriting .pl-select's width:100%,
+   so the bar reads as [ what to file it under ] [ file it ] instead of as a
+   full-width form control with an orphaned button beside it. */
+.pl-pb-composer__bar .pl-select {
+  width: auto;
+  min-width: 13rem;
+}
+
+.pl-pb-composer__add { margin-left: auto; }
+
+/* The same measure as the composer above it: you write a line at this width
+   and you read it back at this width. A 992px rule under a 620px sentence is a
+   boundary drawn somewhere the content never reaches. */
+.pl-pb-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pl-space-lg);
+  max-width: 46rem;
+}
+
+/* An entry is a note plus its provenance. The left edge takes the product's
+   colour when the note is filed under a dimension, which is the only thing
+   separating a classified note from a loose one at a glance.
+
+   Ruled, not boxed. Four identical bordered rectangles down one column is the
+   card stack the composer above already justifies once; repeating it for every
+   saved line turned a page you are supposed to READ — it is your own writing,
+   set in the serif for exactly that reason — into an inventory of containers.
+   The clay edge survives because it carries meaning; the other three sides did
+   not. */
+.pl-pb-entry {
+  border-left: 3px solid var(--pl-line);
+  border-bottom: 1px solid var(--pl-line);
+  padding: 4px 0 16px 18px;
+}
+
+.pl-pb-entry--filed { border-left-color: var(--pl-clay); }
+
+/* The note is set in the serif. It is the user's own sentence, and it is the
+   only thing on the page that is theirs rather than the product's. */
+.pl-pb-entry__note {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: var(--pl-text-prose);
+  line-height: 1.6;
+  color: var(--pl-ink);
+  margin: 0 0 11px;
+  max-width: 66ch;
+  text-wrap: pretty;
+}
+
+.pl-pb-entry__meta {
+  display: flex;
+  gap: var(--pl-space-md);
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: var(--pl-text-caption);
+  color: var(--pl-ink-faint);
+}
+
+.pl-pb-entry__dim {
+  color: var(--pl-clay-deep);
+  font-weight: 500;
+}
+
+/* Destructive, and therefore quiet until you are looking for it. Sits at the
+   end of the provenance line rather than at the container's right edge, where
+   `margin-left: auto` had been stranding it 700px from the note it deletes. */
+.pl-pb-entry__remove {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  font-family: inherit;
+  font-size: var(--pl-text-caption);
+  color: var(--pl-ink-faint);
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color var(--pl-fast) var(--pl-ease-out);
+}
+
+.pl-pb-entry__remove:hover { color: var(--pl-clay); }
+
+/* ── Section titles ─────────────────────────────────────────────────────── */
+
+/* The heading that opens a section inside a page that already has an h1. It
+   was written out longhand on the dashboard, the pricing page and the progress
+   page at 21px, 22px and 21px respectively — three values for one thing, which
+   is the difference between a page that was designed and one that was
+   assembled. */
+.pl-sec-title {
+  font-family: var(--pl-font-serif, Georgia, serif);
+  font-size: var(--pl-text-h2);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--pl-ink);
+  margin: 0 0 var(--pl-space-lg);
+  text-wrap: balance;
+}
+
+/* ── Comparison table ───────────────────────────────────────────────────── */
+
+/* What is in each plan. A table because it is tabular data and a grid of cards
+   would be pretending otherwise.
+
+   The horizontal scroll is deliberate and is the exception the responsive rule
+   allows: below about 520px the label column and the three plan columns cannot
+   be read at any size that is still text, so the table scrolls inside its own
+   container rather than pushing the page sideways. */
+.pl-compare-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--pl-line-strong);
+  border-radius: var(--pl-radius-md);
+  background: var(--pl-surface);
+}
+
+.pl-compare {
+  width: 100%;
+  /* Four columns since Team stopped being sold, not five. */
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: var(--pl-text-small);
+}
+
+/* The two things the table cannot say, said in words underneath it: that the
+   debrief is not a separately metered thing, and that nothing is deleted on a
+   schedule. Both used to be rows claiming a difference between plans that no
+   code enforced. Outside the scrolling wrapper, so it stays put when a narrow
+   screen scrolls the table sideways. */
+.pl-compare__note {
+  margin: 12px 2px var(--pl-space-section);
+  font-size: var(--pl-text-small);
+  line-height: 1.6;
+  color: var(--pl-ink-muted);
+  max-width: 74ch;
+  text-wrap: pretty;
+}
+
+.pl-compare th,
+.pl-compare td {
+  padding: 12px 16px;
+  text-align: center;
+  border-bottom: 1px solid var(--pl-line);
+}
+
+.pl-compare thead th {
+  font-weight: 600;
+  color: var(--pl-ink);
+  border-bottom-color: var(--pl-line-strong);
+}
+
+/* The row label column. Left-aligned because it is a label, not a value. */
+.pl-compare th:first-child,
+.pl-compare td:first-child {
+  text-align: left;
+  color: var(--pl-ink-muted);
+}
+
+.pl-compare tbody tr:last-child th,
+.pl-compare tbody tr:last-child td { border-bottom: none; }
+
+/* A row reads across, so it gets a hover that runs the whole way. Without it,
+   matching a value in the fourth column back to its label in the first is done
+   by holding a finger on the screen. */
+.pl-compare tbody tr:hover td { background: var(--pl-surface-sunken); }
+
+/* ── Reduced motion ─────────────────────────────────────────────────────── */
+
+/* Last in the file so it wins over every transition declared above. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .pl-card--interactive:hover,
+  .pl-btn:active {
+    transform: none;
+  }
+  /* The sheet must still arrive, just without travelling. */
+  .pl-room-brief,
+  .pl-modal,
+  .pl-sheet-backdrop,
+  .pl-modal-backdrop {
+    animation: none !important;
+  }
+  /* The breathing rule and the loading sweep are the only loops in the
+     product. Both convey "still working", so they are held at a legible
+     resting state rather than removed — an invisible indicator is worse than
+     a still one. */
+  .pl-breath { animation: none !important; opacity: 0.7 !important; transform: none !important; }
+  /* The room's entrance and its still ending are position changes; under
+     reduced motion they become a plain change of state. */
+  .pl-room-head__id,
+  .pl-room-brief__inner,
+  .pl-room-thread,
+  .pl-room-composer__inner { animation: none !important; opacity: 1; transform: none; }
+  .pl-room-shell[data-ending="true"] .pl-room-composer { transform: none !important; }
+  /* The redaction must still END UP lifted, so it is removed rather than
+     animated — an un-reveal that never runs would leave the text covered. */
+  .pl-reveal::after { animation: none !important; display: none !important; }
+  /* The reveal act's plane still has to leave; DebriefClient skips the
+     leaving state under reduced motion, and this covers the case where it
+     did not. The sealed block simply holds still. */
+  .pl-act[data-state="leaving"] { animation: none !important; display: none !important; }
+  .pl-act__sealed { animation: none !important; }
+  /* The door must still END UP closed. */
+  .pl-door-close { animation: none !important; clip-path: none !important; }
+  .pl-settle { animation: none !important; opacity: 1 !important; transform: none !important; }
+  /* The bar must still end up filled, so it is snapped rather than stopped. */
+  .pl-db-dim__fill { animation: none !important; transform: none !important; }
+  .pl-db-surfaced { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .pl-ledger { animation: none !important; opacity: 1 !important; transform: none !important; }
+  a.pl-slab:hover, button.pl-slab:hover,
+  a.pl-slab:active, button.pl-slab:active,
+  .pl-btn--primary:hover, .pl-btn--primary:active { transform: none !important; }
+  .pl-sweep::after { animation: none !important; width: 100% !important; opacity: 0.5; }
+}

@@ -1,0 +1,77 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+/dist
+
+# misc
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files
+#
+# Everything .env* is ignored, then the TEMPLATE is explicitly allowed back.
+# The negation has to come after the wildcard or git never reconsiders the file.
+#
+# The template carries variable NAMES and no values, which is what makes it safe
+# to track — README's quick start says to copy it to .env.local, and that
+# instruction was broken while the wildcard swallowed it too.
+.env*
+!.env.local.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# editor directories and files
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+
+# OS artifacts
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# outbound/prospect research
+#
+# Working notes for outbound sales, not part of the product. They carry
+# third-party company names, people and contact details, which do not belong
+# in this repository.
+outreach/
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
